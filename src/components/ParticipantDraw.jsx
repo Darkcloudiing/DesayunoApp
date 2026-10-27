@@ -419,33 +419,15 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
             </button>
           </div>
 
-          {/* Bottom Clear & Admin Buttons */}
-          <div style={{ textAlign: 'center', marginTop: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-              🔒 Tu boleto está guardado en este dispositivo.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <button
-                onClick={handleResetMyTest}
-                className="btn btn-primary"
-                style={{
-                  fontSize: '0.85rem',
-                  padding: '0.55rem 1.1rem',
-                  borderRadius: '999px',
-                  background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                  color: '#FFFFFF'
-                }}
-              >
-                <RefreshCw size={14} /> 🔄 Probar con otro nombre (Reiniciar prueba)
-              </button>
-              <button
-                onClick={onSwitchToAdmin}
-                className="btn btn-ghost"
-                style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}
-              >
-                ⚙️ Administrador
-              </button>
-            </div>
+          {/* Admin link */}
+          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+            <button
+              onClick={onSwitchToAdmin}
+              className="btn btn-ghost"
+              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+            >
+              ⚙️ Administrador
+            </button>
           </div>
         </div>
       )}

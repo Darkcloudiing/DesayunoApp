@@ -4,14 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { db, initDb } from './db.js';
+import { query, queryOne, execute, initDb, normalizeName, matchParticipantTicket, isPostgres } from './db.js';
 import { balanceItems, PRESETS } from './balancer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize DB schema & seed data
-initDb();
+await initDb();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +38,32 @@ function getNetworkIps() {
   return results;
 }
 
+// Helper: Find assigned ticket flexibly (case-insensitive, accent-insensitive, partial matching)
+async function findAssignedTicketByName(eventId, searchName) {
+  if (!searchName || !searchName.trim()) return null;
+  const assigned = await query(`
+    SELECT * FROM tickets 
+    WHERE event_id = ? AND status = 'assigned'
+  `, [eventId]);
+  return matchParticipantTicket(assigned, searchName);
+}
+
+// ---------------------- Participant List ----------------------
+app.get('/api/lottery/participants', async (req, res) => {
+  try {
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
+    if (!event) return res.json([]);
+    const tickets = await query(`
+      SELECT id, assigned_to FROM tickets 
+      WHERE event_id = ? AND status = 'assigned' AND assigned_to IS NOT NULL
+      ORDER BY assigned_to ASC
+    `, [event.id]);
+    res.json(tickets.map(t => ({ id: t.id, name: t.assigned_to })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------------------- Network Info ----------------------
 app.get('/api/network-info', (req, res) => {
   const ips = getNetworkIps();
@@ -52,14 +78,14 @@ app.get('/api/network-info', (req, res) => {
 });
 
 // ---------------------- Event Details ----------------------
-app.get('/api/event', (req, res) => {
+app.get('/api/event', async (req, res) => {
   try {
-    const event = db.prepare('SELECT * FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT * FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) {
       return res.status(404).json({ error: 'No hay ningún evento activo.' });
     }
 
-    const stats = db.prepare(`
+    const rawStats = await queryOne(`
       SELECT 
         COUNT(*) as total_tickets,
         SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_tickets,
@@ -71,7 +97,18 @@ app.get('/api/event', (req, res) => {
         COALESCE(MAX(estimated_cost), 0) as max_cost
       FROM tickets 
       WHERE event_id = ?
-    `).get(event.id);
+    `, [event.id]);
+
+    const stats = {
+      total_tickets: Number(rawStats?.total_tickets || 0),
+      available_tickets: Number(rawStats?.available_tickets || 0),
+      assigned_tickets: Number(rawStats?.assigned_tickets || 0),
+      purchased_tickets: Number(rawStats?.purchased_tickets || 0),
+      total_budget: Number(rawStats?.total_budget || 0),
+      avg_cost: Number(rawStats?.avg_cost || 0),
+      min_cost: Number(rawStats?.min_cost || 0),
+      max_cost: Number(rawStats?.max_cost || 0)
+    };
 
     res.json({
       event: {
@@ -79,7 +116,7 @@ app.get('/api/event', (req, res) => {
         title: event.title,
         description: event.description,
         target_date: event.target_date,
-        target_budget_per_person: event.target_budget_per_person,
+        target_budget_per_person: Number(event.target_budget_per_person || 10.83),
         created_at: event.created_at
       },
       stats
@@ -89,24 +126,24 @@ app.get('/api/event', (req, res) => {
   }
 });
 
-app.put('/api/event', (req, res) => {
+app.put('/api/event', async (req, res) => {
   try {
     const { title, description, target_date, admin_pin } = req.body;
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
     if (admin_pin) {
-      db.prepare(`
+      await execute(`
         UPDATE events 
         SET title = ?, description = ?, target_date = ?, admin_pin = ? 
         WHERE id = ?
-      `).run(title, description, target_date, admin_pin, event.id);
+      `, [title, description, target_date, admin_pin, event.id]);
     } else {
-      db.prepare(`
+      await execute(`
         UPDATE events 
         SET title = ?, description = ?, target_date = ? 
         WHERE id = ?
-      `).run(title, description, target_date, event.id);
+      `, [title, description, target_date, event.id]);
     }
 
     res.json({ success: true, message: 'Evento actualizado correctamente' });
@@ -116,9 +153,9 @@ app.put('/api/event', (req, res) => {
 });
 
 // ---------------------- Admin Auth Check ----------------------
-app.post('/api/admin/verify-pin', (req, res) => {
+app.post('/api/admin/verify-pin', async (req, res) => {
   const { pin } = req.body;
-  const event = db.prepare('SELECT admin_pin FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+  const event = await queryOne('SELECT admin_pin FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
   if (event && event.admin_pin === pin) {
     res.json({ authorized: true });
   } else {
@@ -127,23 +164,28 @@ app.post('/api/admin/verify-pin', (req, res) => {
 });
 
 // ---------------------- Tickets CRUD & Presets ----------------------
-app.get('/api/tickets', (req, res) => {
+app.get('/api/tickets', async (req, res) => {
   try {
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.json([]);
 
-    const tickets = db.prepare(`
+    const tickets = await query(`
       SELECT * FROM tickets WHERE event_id = ? ORDER BY id ASC
-    `).all(event.id);
+    `, [event.id]);
 
     const parsed = tickets.map(t => {
       let items = [];
       try {
-        items = JSON.parse(t.items_json);
+        items = typeof t.items_json === 'string' ? JSON.parse(t.items_json) : t.items_json;
       } catch {
-        items = [{ name: t.title, qty: '1', cost: t.estimated_cost }];
+        items = [{ name: t.title, qty: '1', cost: Number(t.estimated_cost) || 0 }];
       }
-      return { ...t, items };
+      return { 
+        ...t, 
+        estimated_cost: Number(t.estimated_cost) || 0,
+        is_purchased: Number(t.is_purchased || 0),
+        items 
+      };
     });
 
     res.json(parsed);
@@ -152,17 +194,17 @@ app.get('/api/tickets', (req, res) => {
   }
 });
 
-app.post('/api/tickets', (req, res) => {
+app.post('/api/tickets', async (req, res) => {
   try {
     const { title, items, category, estimated_cost, notes } = req.body;
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    const itemsJson = JSON.stringify(items || [{ name: title, qty: '1 unidad', cost: estimated_cost }]);
-    const result = db.prepare(`
+    const itemsJson = JSON.stringify(items || [{ name: title, qty: '1 unidad', cost: Number(estimated_cost) || 0 }]);
+    const result = await execute(`
       INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(event.id, title, itemsJson, category || 'General', Number(estimated_cost) || 0, notes || '');
+    `, [event.id, title, itemsJson, category || 'General', Number(estimated_cost) || 0, notes || '']);
 
     res.json({ success: true, ticketId: result.lastInsertRowid });
   } catch (err) {
@@ -170,29 +212,29 @@ app.post('/api/tickets', (req, res) => {
   }
 });
 
-app.put('/api/tickets/:id', (req, res) => {
+app.put('/api/tickets/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { title, items, category, estimated_cost, notes, status, assigned_to } = req.body;
 
     const itemsJson = items ? JSON.stringify(items) : undefined;
-    const current = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+    const current = await queryOne('SELECT * FROM tickets WHERE id = ?', [id]);
     if (!current) return res.status(404).json({ error: 'Ticket no encontrado' });
 
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET title = ?, items_json = ?, category = ?, estimated_cost = ?, notes = ?, status = ?, assigned_to = ?
       WHERE id = ?
-    `).run(
+    `, [
       title ?? current.title,
       itemsJson ?? current.items_json,
       category ?? current.category,
-      estimated_cost ?? current.estimated_cost,
+      estimated_cost !== undefined ? Number(estimated_cost) : current.estimated_cost,
       notes ?? current.notes,
       status ?? current.status,
       assigned_to ?? current.assigned_to,
       id
-    );
+    ]);
 
     res.json({ success: true, message: 'Ticket actualizado' });
   } catch (err) {
@@ -200,10 +242,10 @@ app.put('/api/tickets/:id', (req, res) => {
   }
 });
 
-app.delete('/api/tickets/:id', (req, res) => {
+app.delete('/api/tickets/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    await execute('DELETE FROM tickets WHERE id = ?', [id]);
     res.json({ success: true, message: 'Ticket eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -211,32 +253,30 @@ app.delete('/api/tickets/:id', (req, res) => {
 });
 
 // Auto-Balance tickets from custom items list
-app.post('/api/tickets/auto-balance', (req, res) => {
+app.post('/api/tickets/auto-balance', async (req, res) => {
   try {
     const { items, participantCount, replaceExisting } = req.body;
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
     const balancedBuckets = balanceItems(items, Number(participantCount) || 8);
 
     if (replaceExisting) {
-      db.prepare('DELETE FROM tickets WHERE event_id = ?').run(event.id);
+      await execute('DELETE FROM tickets WHERE event_id = ?', [event.id]);
     }
 
-    const insert = db.prepare(`
-      INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
     for (const b of balancedBuckets) {
-      insert.run(
+      await execute(`
+        INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [
         event.id,
         b.title,
         JSON.stringify(b.items),
         b.category,
         b.estimated_cost,
         b.notes
-      );
+      ]);
     }
 
     res.json({ success: true, generatedTickets: balancedBuckets.length, tickets: balancedBuckets });
@@ -246,35 +286,33 @@ app.post('/api/tickets/auto-balance', (req, res) => {
 });
 
 // Load thematic preset
-app.post('/api/tickets/preset', (req, res) => {
+app.post('/api/tickets/preset', async (req, res) => {
   try {
     const { presetKey, replaceExisting } = req.body;
     const preset = PRESETS[presetKey];
     if (!preset) return res.status(400).json({ error: 'Preset desconocido' });
 
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
     const balancedBuckets = balanceItems(preset.items, preset.targetCount);
 
     if (replaceExisting !== false) {
-      db.prepare('DELETE FROM tickets WHERE event_id = ?').run(event.id);
+      await execute('DELETE FROM tickets WHERE event_id = ?', [event.id]);
     }
 
-    const insert = db.prepare(`
-      INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
     for (const b of balancedBuckets) {
-      insert.run(
+      await execute(`
+        INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [
         event.id,
         b.title,
         JSON.stringify(b.items),
         b.category,
         b.estimated_cost,
         b.notes
-      );
+      ]);
     }
 
     res.json({ success: true, presetName: preset.name, count: balancedBuckets.length });
@@ -285,37 +323,48 @@ app.post('/api/tickets/preset', (req, res) => {
 
 // ---------------------- Lottery / Draw Participant Flow ----------------------
 
-// Check if participant already has a ticket
-app.post('/api/lottery/check-my-ticket', (req, res) => {
+// Check if participant already has a ticket (by id, device fingerprint, or name)
+app.post('/api/lottery/check-my-ticket', async (req, res) => {
   try {
     const { name, deviceFingerprint, ticketId } = req.body;
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
     let existing = null;
     if (ticketId) {
-      existing = db.prepare(`
+      existing = await queryOne(`
         SELECT * FROM tickets 
         WHERE event_id = ? AND id = ? AND status = 'assigned'
-      `).get(event.id, ticketId);
+      `, [event.id, ticketId]);
     }
 
     if (!existing && deviceFingerprint) {
-      existing = db.prepare(`
+      existing = await queryOne(`
         SELECT * FROM tickets 
         WHERE event_id = ? AND device_fingerprint = ? AND status = 'assigned'
-      `).get(event.id, deviceFingerprint);
+      `, [event.id, deviceFingerprint]);
     }
 
+    // Flexible name lookup (case-insensitive & accent-insensitive)
     if (!existing && name && name.trim()) {
-      existing = db.prepare(`
-        SELECT * FROM tickets 
-        WHERE event_id = ? AND LOWER(TRIM(assigned_to)) = LOWER(TRIM(?)) AND status = 'assigned'
-      `).get(event.id, name.trim());
+      existing = await findAssignedTicketByName(event.id, name);
     }
 
     if (existing) {
-      existing.items = JSON.parse(existing.items_json);
+      // Auto-bind device fingerprint if provided
+      if (deviceFingerprint && (!existing.device_fingerprint || existing.device_fingerprint !== deviceFingerprint)) {
+        await execute('UPDATE tickets SET device_fingerprint = ? WHERE id = ?', [deviceFingerprint, existing.id]);
+        existing.device_fingerprint = deviceFingerprint;
+      }
+
+      try {
+        existing.items = typeof existing.items_json === 'string' ? JSON.parse(existing.items_json) : existing.items_json;
+      } catch {
+        existing.items = [];
+      }
+      existing.estimated_cost = Number(existing.estimated_cost) || 0;
+      existing.is_purchased = Number(existing.is_purchased || 0);
+
       return res.json({ found: true, ticket: existing });
     }
 
@@ -325,8 +374,8 @@ app.post('/api/lottery/check-my-ticket', (req, res) => {
   }
 });
 
-// Perform the live draw
-app.post('/api/lottery/draw', (req, res) => {
+// Perform the live draw or recover pre-assigned ticket
+app.post('/api/lottery/draw', async (req, res) => {
   try {
     const { name, phone, deviceFingerprint } = req.body;
     if (!name || !name.trim()) {
@@ -334,42 +383,56 @@ app.post('/api/lottery/draw', (req, res) => {
     }
 
     const trimmedName = name.trim();
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    // 1. Check if this person or device already has a ticket
+    // 1. Check if device already has a ticket
     let existing = null;
     if (deviceFingerprint) {
-      existing = db.prepare(`
+      existing = await queryOne(`
         SELECT * FROM tickets 
         WHERE event_id = ? AND device_fingerprint = ? AND status = 'assigned'
-      `).get(event.id, deviceFingerprint);
+      `, [event.id, deviceFingerprint]);
     }
 
+    // 2. Check if this person already has a pre-assigned ticket (flexible name search!)
     if (!existing) {
-      existing = db.prepare(`
-        SELECT * FROM tickets 
-        WHERE event_id = ? AND LOWER(TRIM(assigned_to)) = LOWER(TRIM(?)) AND status = 'assigned'
-      `).get(event.id, trimmedName);
+      existing = await findAssignedTicketByName(event.id, trimmedName);
     }
 
     if (existing) {
-      existing.items = JSON.parse(existing.items_json);
+      // Bind device fingerprint to the preassigned ticket
+      if (deviceFingerprint) {
+        await execute(`
+          UPDATE tickets 
+          SET device_fingerprint = ?, assigned_phone = COALESCE(?, assigned_phone) 
+          WHERE id = ?
+        `, [deviceFingerprint, phone ? phone.trim() : null, existing.id]);
+      }
+
+      try {
+        existing.items = typeof existing.items_json === 'string' ? JSON.parse(existing.items_json) : existing.items_json;
+      } catch {
+        existing.items = [];
+      }
+      existing.estimated_cost = Number(existing.estimated_cost) || 0;
+      existing.is_purchased = Number(existing.is_purchased || 0);
+
       return res.json({
         success: true,
         alreadyDrawn: true,
-        message: '¡Ya tenías un ticket asignado previamente!',
+        message: `¡Hola ${existing.assigned_to}! Tu boleto ya está asignado.`,
         ticket: existing
       });
     }
 
-    // 2. Select an available ticket at random
-    const availableTicket = db.prepare(`
+    // 3. Select an available ticket at random (from 3 remaining available tickets)
+    const availableTicket = await queryOne(`
       SELECT * FROM tickets 
       WHERE event_id = ? AND status = 'available' 
       ORDER BY RANDOM() 
       LIMIT 1
-    `).get(event.id);
+    `, [event.id]);
 
     if (!availableTicket) {
       return res.status(409).json({
@@ -377,9 +440,9 @@ app.post('/api/lottery/draw', (req, res) => {
       });
     }
 
-    // 3. Atomically assign the ticket
+    // 4. Atomically assign the ticket
     const nowIso = new Date().toISOString();
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET status = 'assigned', 
           assigned_to = ?, 
@@ -387,11 +450,17 @@ app.post('/api/lottery/draw', (req, res) => {
           device_fingerprint = ?, 
           assigned_at = ? 
       WHERE id = ? AND status = 'available'
-    `).run(trimmedName, phone ? phone.trim() : null, deviceFingerprint || null, nowIso, availableTicket.id);
+    `, [trimmedName, phone ? phone.trim() : null, deviceFingerprint || null, nowIso, availableTicket.id]);
 
     // Fetch the updated record
-    const updated = db.prepare('SELECT * FROM tickets WHERE id = ?').get(availableTicket.id);
-    updated.items = JSON.parse(updated.items_json);
+    const updated = await queryOne('SELECT * FROM tickets WHERE id = ?', [availableTicket.id]);
+    try {
+      updated.items = typeof updated.items_json === 'string' ? JSON.parse(updated.items_json) : updated.items_json;
+    } catch {
+      updated.items = [];
+    }
+    updated.estimated_cost = Number(updated.estimated_cost) || 0;
+    updated.is_purchased = Number(updated.is_purchased || 0);
 
     res.json({
       success: true,
@@ -404,21 +473,21 @@ app.post('/api/lottery/draw', (req, res) => {
 });
 
 // Release ticket for test re-roll from participant phone
-app.post('/api/lottery/release-my-ticket', (req, res) => {
+app.post('/api/lottery/release-my-ticket', async (req, res) => {
   try {
     const { deviceFingerprint, ticketId } = req.body;
     if (ticketId) {
-      db.prepare(`
+      await execute(`
         UPDATE tickets 
         SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL, is_purchased = 0, purchased_at = NULL 
         WHERE id = ?
-      `).run(ticketId);
+      `, [ticketId]);
     } else if (deviceFingerprint) {
-      db.prepare(`
+      await execute(`
         UPDATE tickets 
         SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL, is_purchased = 0, purchased_at = NULL 
         WHERE device_fingerprint = ?
-      `).run(deviceFingerprint);
+      `, [deviceFingerprint]);
     }
     res.json({ success: true, message: 'Ticket liberado' });
   } catch (err) {
@@ -427,14 +496,14 @@ app.post('/api/lottery/release-my-ticket', (req, res) => {
 });
 
 // Participant confirms or unconfirms item purchase
-app.post('/api/lottery/confirm-purchase', (req, res) => {
+app.post('/api/lottery/confirm-purchase', async (req, res) => {
   try {
     const { ticketId, purchased } = req.body;
     if (!ticketId) {
       return res.status(400).json({ error: 'ID de boleto requerido.' });
     }
 
-    const current = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    const current = await queryOne('SELECT * FROM tickets WHERE id = ?', [ticketId]);
     if (!current) {
       return res.status(404).json({ error: 'Boleto no encontrado.' });
     }
@@ -445,18 +514,20 @@ app.post('/api/lottery/confirm-purchase', (req, res) => {
     const isPurchased = purchased === false ? 0 : 1;
     const purchasedAt = isPurchased === 1 ? new Date().toISOString() : null;
 
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET is_purchased = ?, purchased_at = ? 
       WHERE id = ?
-    `).run(isPurchased, purchasedAt, ticketId);
+    `, [isPurchased, purchasedAt, ticketId]);
 
-    const updated = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    const updated = await queryOne('SELECT * FROM tickets WHERE id = ?', [ticketId]);
     try {
-      updated.items = JSON.parse(updated.items_json);
+      updated.items = typeof updated.items_json === 'string' ? JSON.parse(updated.items_json) : updated.items_json;
     } catch {
       updated.items = [];
     }
+    updated.estimated_cost = Number(updated.estimated_cost) || 0;
+    updated.is_purchased = Number(updated.is_purchased || 0);
 
     res.json({
       success: true,
@@ -473,22 +544,22 @@ app.post('/api/lottery/confirm-purchase', (req, res) => {
 // ---------------------- Admin Management Actions ----------------------
 
 // Toggle purchase status directly from admin panel
-app.post('/api/admin/toggle-purchase/:id', (req, res) => {
+app.post('/api/admin/toggle-purchase/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const current = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+    const current = await queryOne('SELECT * FROM tickets WHERE id = ?', [id]);
     if (!current) {
       return res.status(404).json({ error: 'Boleto no encontrado.' });
     }
 
-    const newPurchased = current.is_purchased === 1 ? 0 : 1;
+    const newPurchased = Number(current.is_purchased || 0) === 1 ? 0 : 1;
     const purchasedAt = newPurchased === 1 ? new Date().toISOString() : null;
 
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET is_purchased = ?, purchased_at = ? 
       WHERE id = ?
-    `).run(newPurchased, purchasedAt, id);
+    `, [newPurchased, purchasedAt, id]);
 
     res.json({
       success: true,
@@ -502,10 +573,10 @@ app.post('/api/admin/toggle-purchase/:id', (req, res) => {
 });
 
 // Unassign / Release ticket
-app.post('/api/admin/release-ticket/:id', (req, res) => {
+app.post('/api/admin/release-ticket/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET status = 'available', 
           assigned_to = NULL, 
@@ -515,7 +586,7 @@ app.post('/api/admin/release-ticket/:id', (req, res) => {
           is_purchased = 0,
           purchased_at = NULL 
       WHERE id = ?
-    `).run(id);
+    `, [id]);
 
     res.json({ success: true, message: 'Ticket liberado y disponible nuevamente.' });
   } catch (err) {
@@ -524,7 +595,7 @@ app.post('/api/admin/release-ticket/:id', (req, res) => {
 });
 
 // Manual assignment by admin
-app.post('/api/admin/assign-manual', (req, res) => {
+app.post('/api/admin/assign-manual', async (req, res) => {
   try {
     const { ticketId, name, phone } = req.body;
     if (!ticketId || !name) {
@@ -532,14 +603,14 @@ app.post('/api/admin/assign-manual', (req, res) => {
     }
 
     const nowIso = new Date().toISOString();
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET status = 'assigned', 
           assigned_to = ?, 
           assigned_phone = ?, 
           assigned_at = ? 
       WHERE id = ?
-    `).run(name.trim(), phone ? phone.trim() : null, nowIso, ticketId);
+    `, [name.trim(), phone ? phone.trim() : null, nowIso, ticketId]);
 
     res.json({ success: true, message: 'Ticket asignado manualmente con éxito.' });
   } catch (err) {
@@ -548,12 +619,12 @@ app.post('/api/admin/assign-manual', (req, res) => {
 });
 
 // Reset entire lottery (keep tickets, release assignments)
-app.post('/api/admin/reset-lottery', (req, res) => {
+app.post('/api/admin/reset-lottery', async (req, res) => {
   try {
-    const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    db.prepare(`
+    await execute(`
       UPDATE tickets 
       SET status = 'available', 
           assigned_to = NULL, 
@@ -563,7 +634,7 @@ app.post('/api/admin/reset-lottery', (req, res) => {
           is_purchased = 0,
           purchased_at = NULL 
       WHERE event_id = ?
-    `).run(event.id);
+    `, [event.id]);
 
     res.json({ success: true, message: 'Sorteo reiniciado. Todos los tickets están disponibles de nuevo.' });
   } catch (err) {
@@ -572,12 +643,12 @@ app.post('/api/admin/reset-lottery', (req, res) => {
 });
 
 // Export WhatsApp formatted message
-app.get('/api/admin/export-summary', (req, res) => {
+app.get('/api/admin/export-summary', async (req, res) => {
   try {
-    const event = db.prepare('SELECT * FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
+    const event = await queryOne('SELECT * FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    const tickets = db.prepare('SELECT * FROM tickets WHERE event_id = ? ORDER BY category, id').all(event.id);
+    const tickets = await query('SELECT * FROM tickets WHERE event_id = ? ORDER BY category, id', [event.id]);
 
     let text = `🍳 *${event.title.toUpperCase()}* 🥐\n`;
     if (event.target_date) {
@@ -591,15 +662,16 @@ app.get('/api/admin/export-summary', (req, res) => {
     // Group by status
     const assigned = tickets.filter(t => t.status === 'assigned');
     const pending = tickets.filter(t => t.status === 'available');
-    const purchasedList = assigned.filter(t => t.is_purchased === 1);
+    const purchasedList = assigned.filter(t => Number(t.is_purchased) === 1);
 
     if (assigned.length > 0) {
       text += `👥 *PARTICIPANTES CONFIRMADOS (${assigned.length}):*\n`;
       for (const t of assigned) {
-        totalBudget += t.estimated_cost;
+        const cost = Number(t.estimated_cost) || 0;
+        totalBudget += cost;
         assignedCount++;
-        const statusIcon = t.is_purchased === 1 ? '✅ [COMPRADO]' : '⏳ [PENDIENTE]';
-        text += `• 👤 *${t.assigned_to}* 👉 ${t.title} (~$${t.estimated_cost.toFixed(2)}) ${statusIcon}\n`;
+        const statusIcon = Number(t.is_purchased) === 1 ? '✅ [COMPRADO]' : '⏳ [PENDIENTE]';
+        text += `• 👤 *${t.assigned_to}* 👉 ${t.title} (~$${cost.toFixed(2)}) ${statusIcon}\n`;
       }
       text += `\n`;
     }
@@ -607,7 +679,8 @@ app.get('/api/admin/export-summary', (req, res) => {
     if (pending.length > 0) {
       text += `🎟️ *TICKETS AÚN DISPONIBLES (${pending.length}):*\n`;
       for (const t of pending) {
-        text += `• 🎟️ ${t.title} (~$${t.estimated_cost.toFixed(2)})\n`;
+        const cost = Number(t.estimated_cost) || 0;
+        text += `• 🎟️ ${t.title} (~$${cost.toFixed(2)})\n`;
       }
       text += `\n`;
     }
@@ -639,7 +712,7 @@ if (fs.existsSync(distPath)) {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 DesayunApp Backend escuchando en http://0.0.0.0:${PORT}`);
+  console.log(`🚀 DesayunApp Backend escuchando en http://0.0.0.0:${PORT} [Motor: ${isPostgres ? '🐘 PostgreSQL / Neon.tech' : '💾 SQLite Local'}]`);
   const ips = getNetworkIps();
   console.log('📡 Interfaces de red disponibles:');
   ips.forEach(net => console.log(`   - ${net.interface}: http://${net.ip}:${PORT}`));

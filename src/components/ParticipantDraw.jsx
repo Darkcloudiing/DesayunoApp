@@ -20,6 +20,8 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
   const [recoverError, setRecoverError] = useState('');
   const [recoverLoading, setRecoverLoading] = useState(false);
   const [confirmingPurchase, setConfirmingPurchase] = useState(false);
+  const [participantsList, setParticipantsList] = useState([]);
+  const [showParticipantList, setShowParticipantList] = useState(false);
 
   // Generate or get device fingerprint
   const getDeviceFingerprint = () => {
@@ -70,9 +72,29 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
           setTicket(data.ticket);
           localStorage.setItem('desayunapp_my_ticket', JSON.stringify(data.ticket));
           setStep('ticket');
+        } else if (savedTicket?.assigned_to) {
+          // Attempt automatic recovery with saved participant name
+          try {
+            const recRes = await fetch('/api/lottery/check-my-ticket', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                name: savedTicket.assigned_to, 
+                deviceFingerprint: fp 
+              })
+            });
+            const recData = await recRes.json();
+            if (recData.found && recData.ticket) {
+              setTicket(recData.ticket);
+              localStorage.setItem('desayunapp_my_ticket', JSON.stringify(recData.ticket));
+              setStep('ticket');
+              return;
+            }
+          } catch {}
+          // Keep saved ticket in memory so participant never loses view
+          setTicket(savedTicket);
+          setStep('ticket');
         } else {
-          // Admin released the ticket or reset the lottery! Clean phone memory
-          localStorage.removeItem('desayunapp_my_ticket');
           setTicket(null);
           setStep('input');
         }
@@ -88,6 +110,14 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     };
 
     checkSaved();
+
+    // Fetch assigned participants list for quick-autocomplete
+    fetch('/api/lottery/participants')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setParticipantsList(data);
+      })
+      .catch(() => {});
   }, []);
 
   const triggerConfetti = () => {
@@ -112,9 +142,9 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     }, 250);
   };
 
-  const handleDrawTicket = async (e) => {
-    e.preventDefault();
-    if (!name.trim()) {
+  const executeDraw = async (targetName) => {
+    const candidate = targetName || name;
+    if (!candidate.trim()) {
       setError('Por favor escribe tu nombre o apodo.');
       return;
     }
@@ -128,7 +158,7 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: candidate.trim(),
           phone: phone.trim(),
           deviceFingerprint: fp
         })
@@ -155,6 +185,16 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDrawTicket = (e) => {
+    e.preventDefault();
+    executeDraw(name);
+  };
+
+  const handleSelectParticipant = (selectedName) => {
+    setName(selectedName);
+    executeDraw(selectedName);
   };
 
   const handleRecoverTicket = async (e) => {
@@ -249,6 +289,15 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     Number(stats.total_tickets) > 0 && 
     Number(stats.available_tickets) === 0
   );
+
+  const cleanNorm = (str) => (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const matchingSuggestions = name.trim().length >= 2
+    ? participantsList.filter(p => {
+        const pNorm = cleanNorm(p.name);
+        const nNorm = cleanNorm(name);
+        return pNorm.includes(nNorm) || nNorm.includes(pNorm);
+      }).slice(0, 4)
+    : [];
 
   if (step === 'loading') {
     return (
@@ -422,13 +471,13 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
         <div className="glass-panel" style={{ padding: '2rem 1.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span className="badge badge-category" style={{ marginBottom: '0.5rem' }}>
-              <Sparkles size={13} /> Sorteo Oficial ({stats?.total_tickets || 15} Boletos · {stats?.available_tickets ?? '?'} Disponibles)
+              <Sparkles size={13} /> Sorteo Oficial ({stats?.total_tickets || 25} Boletos · {stats?.available_tickets ?? '?'} Disponibles)
             </span>
             <h2 style={{ fontSize: '1.35rem', marginTop: '0.3rem' }}>
               ¿Quién va a participar?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-              Ingresa tu nombre para sacar tu boleto sorpresa. Todos los boletos están equilibrados en costo (~$13.28).
+              Escribe tu nombre para consultar o sacar tu boleto para el desayuno.
             </p>
           </div>
 
@@ -449,6 +498,78 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
                 />
                 <User size={18} color="var(--text-dim)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               </div>
+
+              {/* Autocomplete suggestions */}
+              {matchingSuggestions.length > 0 && (
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>¿Eres tú? Toca tu nombre:</span>
+                  {matchingSuggestions.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleSelectParticipant(p.name)}
+                      className="btn btn-ghost"
+                      style={{
+                        padding: '0.25rem 0.65rem',
+                        fontSize: '0.8rem',
+                        borderRadius: '20px',
+                        background: 'rgba(249,115,22,0.18)',
+                        border: '1px solid rgba(249,115,22,0.4)',
+                        color: '#FDBA74'
+                      }}
+                    >
+                      👤 {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick Participant List Toggle */}
+              {participantsList.length > 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowParticipantList(!showParticipantList)}
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '0.2rem 0.4rem', textDecoration: 'underline' }}
+                  >
+                    {showParticipantList ? '▲ Ocultar lista de nombres' : '📋 Ver lista de los 22 compañeros'}
+                  </button>
+                  {showParticipantList && (
+                    <div style={{ 
+                      marginTop: '0.4rem', 
+                      padding: '0.65rem', 
+                      background: 'rgba(0,0,0,0.3)', 
+                      borderRadius: '12px', 
+                      border: '1px solid var(--border-subtle)',
+                      maxHeight: '130px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.3rem'
+                    }}>
+                      {participantsList.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSelectParticipant(p.name)}
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '14px',
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            color: '#E2E8F0',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
@@ -485,7 +606,7 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
               ) : (
                 <>
                   <Sparkles size={18} />
-                  ¡Sacar Mi Boleto Sorpresa!
+                  ¡Ver o Sacar Mi Boleto!
                   <ArrowRight size={18} />
                 </>
               )}

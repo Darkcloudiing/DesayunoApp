@@ -37,36 +37,47 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     }
 
     const checkSaved = async () => {
+      let savedTicket = null;
       const savedTicketStr = localStorage.getItem('desayunapp_my_ticket');
       if (savedTicketStr) {
         try {
-          const parsed = JSON.parse(savedTicketStr);
-          setTicket(parsed);
-          setStep('ticket');
-          return;
+          savedTicket = JSON.parse(savedTicketStr);
         } catch {
           localStorage.removeItem('desayunapp_my_ticket');
         }
       }
 
-      // Check on backend by device fingerprint
+      // Check on backend: Is this ticket or device still actively assigned?
       const fp = getDeviceFingerprint();
       try {
         const res = await fetch('/api/lottery/check-my-ticket', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceFingerprint: fp })
+          body: JSON.stringify({ 
+            deviceFingerprint: fp,
+            ticketId: savedTicket?.id 
+          })
         });
         const data = await res.json();
         if (data.found && data.ticket) {
+          // Ticket is confirmed and active
           setTicket(data.ticket);
           localStorage.setItem('desayunapp_my_ticket', JSON.stringify(data.ticket));
           setStep('ticket');
         } else {
+          // Admin released the ticket or reset the lottery! Clean phone memory
+          localStorage.removeItem('desayunapp_my_ticket');
+          setTicket(null);
           setStep('input');
         }
       } catch {
-        setStep('input');
+        // Fallback only if server unreachable
+        if (savedTicket) {
+          setTicket(savedTicket);
+          setStep('ticket');
+        } else {
+          setStep('input');
+        }
       }
     };
 
@@ -142,28 +153,6 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     sound.playFanfare();
     triggerConfetti();
     setStep('ticket');
-  };
-
-  // Reset test on this device
-  const handleResetMyTest = async () => {
-    if (confirm('¿Deseas reiniciar la prueba en este teléfono para poder probar con otro nombre?')) {
-      const fp = localStorage.getItem('desayunapp_device_id');
-      try {
-        await fetch('/api/lottery/release-my-ticket', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceFingerprint: fp, ticketId: ticket?.id })
-        });
-      } catch (e) {
-        console.error(e);
-      }
-      localStorage.removeItem('desayunapp_my_ticket');
-      localStorage.removeItem('desayunapp_device_id');
-      setTicket(null);
-      setName('');
-      setPhone('');
-      setStep('input');
-    }
   };
 
   const handleCopyAssignment = () => {
@@ -373,26 +362,11 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
       {step === 'ticket' && ticket && (
         <div style={{ animation: 'slide-up 0.4s ease' }}>
           
-          {/* Top Bar with Status and Quick Reset Button */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <span className="badge badge-available" style={{ padding: '0.4rem 0.9rem' }}>
-              <CheckCircle2 size={15} /> ¡Aporte Confirmado!
+          {/* Top Bar with Status */}
+          <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+            <span className="badge badge-available" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+              <CheckCircle2 size={16} /> ¡Tu Aporte está Confirmado!
             </span>
-            <button
-              onClick={handleResetMyTest}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.35rem 0.8rem',
-                borderRadius: '999px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                color: '#FBBF24',
-                border: '1px solid rgba(245, 158, 11, 0.4)'
-              }}
-              title="Permite sortear como otra persona"
-            >
-              <RefreshCw size={13} /> 🔄 Probar con otro nombre
-            </button>
           </div>
 
           {/* Ticket Card Component */}

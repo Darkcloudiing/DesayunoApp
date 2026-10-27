@@ -287,12 +287,19 @@ app.post('/api/tickets/preset', (req, res) => {
 // Check if participant already has a ticket
 app.post('/api/lottery/check-my-ticket', (req, res) => {
   try {
-    const { name, deviceFingerprint } = req.body;
+    const { name, deviceFingerprint, ticketId } = req.body;
     const event = db.prepare('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
     let existing = null;
-    if (deviceFingerprint) {
+    if (ticketId) {
+      existing = db.prepare(`
+        SELECT * FROM tickets 
+        WHERE event_id = ? AND id = ? AND status = 'assigned'
+      `).get(event.id, ticketId);
+    }
+
+    if (!existing && deviceFingerprint) {
       existing = db.prepare(`
         SELECT * FROM tickets 
         WHERE event_id = ? AND device_fingerprint = ? AND status = 'assigned'

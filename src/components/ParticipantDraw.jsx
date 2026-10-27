@@ -68,38 +68,18 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
         });
         const data = await res.json();
         if (data.found && data.ticket) {
-          // Ticket is confirmed and active
+          // Ticket is confirmed and active in Neon DB
           setTicket(data.ticket);
           localStorage.setItem('desayunapp_my_ticket', JSON.stringify(data.ticket));
           setStep('ticket');
-        } else if (savedTicket?.assigned_to) {
-          // Attempt automatic recovery with saved participant name
-          try {
-            const recRes = await fetch('/api/lottery/check-my-ticket', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                name: savedTicket.assigned_to, 
-                deviceFingerprint: fp 
-              })
-            });
-            const recData = await recRes.json();
-            if (recData.found && recData.ticket) {
-              setTicket(recData.ticket);
-              localStorage.setItem('desayunapp_my_ticket', JSON.stringify(recData.ticket));
-              setStep('ticket');
-              return;
-            }
-          } catch {}
-          // Keep saved ticket in memory so participant never loses view
-          setTicket(savedTicket);
-          setStep('ticket');
         } else {
+          // Server confirmed ticket was released or not assigned: clear local storage
+          localStorage.removeItem('desayunapp_my_ticket');
           setTicket(null);
           setStep('input');
         }
       } catch {
-        // Fallback only if server unreachable
+        // Fallback ONLY if server is completely offline / unreachable
         if (savedTicket) {
           setTicket(savedTicket);
           setStep('ticket');
@@ -237,6 +217,12 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleResetMyTicket = () => {
+    localStorage.removeItem('desayunapp_my_ticket');
+    setTicket(null);
+    setStep('input');
   };
 
   const handleShareWhatsApp = () => {
@@ -838,12 +824,19 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
             </button>
           </div>
 
-          {/* Admin link */}
-          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          {/* Bottom Actions: Switch / Release & Admin */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', marginTop: '1.5rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
+            <button
+              onClick={handleResetMyTicket}
+              className="btn btn-ghost"
+              style={{ fontSize: '0.82rem', padding: '0.35rem 0.8rem', color: '#FDA4AF' }}
+            >
+              🔄 ¿Boleto liberado o cambiar? Salir de este boleto
+            </button>
             <button
               onClick={onSwitchToAdmin}
               className="btn btn-ghost"
-              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+              style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', color: 'var(--text-dim)' }}
             >
               ⚙️ Administrador
             </button>

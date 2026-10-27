@@ -175,8 +175,12 @@ export default function ProjectorModal({ event, stats, networkInfo, onClose }) {
                 <span style={{ color: '#34D399', fontWeight: 700 }}>{stats?.available_tickets || 0}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Compras confirmadas:</span>
+                <span style={{ color: '#34D399', fontWeight: 700 }}>{stats?.purchased_tickets || 0} / {stats?.assigned_tickets || 0}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Presupuesto total estimado:</span>
-                <span style={{ color: '#60A5FA', fontWeight: 700 }}>~${Number(stats?.total_budget || 199.16).toFixed(2)}</span>
+                <span style={{ color: '#60A5FA', fontWeight: 700 }}>~${Number(stats?.total_budget || 0).toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Gasto equilibrado por persona:</span>

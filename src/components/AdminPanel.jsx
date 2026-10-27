@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Ticket, Scale, Share2, Settings, QrCode, Plus, 
   Trash2, RefreshCw, CheckCircle2, AlertCircle, Copy, Check,
-  Edit2, UserPlus, Sparkles, DollarSign, LogOut, Coffee
+  Edit2, UserPlus, Sparkles, DollarSign, LogOut, Coffee, ShoppingBag
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
@@ -145,6 +145,19 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
       onRefresh();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleTogglePurchase = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/toggle-purchase/${id}`, { method: 'POST' });
+      if (res.ok) {
+        sound.playTap();
+        fetchTickets();
+        onRefresh();
+      }
+    } catch (err) {
+      alert('Error al actualizar compra: ' + err.message);
     }
   };
 
@@ -324,6 +337,8 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
   const filteredTickets = tickets.filter(t => {
     if (filter === 'available') return t.status === 'available';
     if (filter === 'assigned') return t.status === 'assigned';
+    if (filter === 'purchased') return t.status === 'assigned' && t.is_purchased === 1;
+    if (filter === 'pending_purchase') return t.status === 'assigned' && t.is_purchased !== 1;
     return true;
   });
 
@@ -367,7 +382,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
       </header>
 
       {/* Stats Summary Ribbon */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div className="glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>Total Boletos</div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#FFF', marginTop: '0.2rem' }}>
@@ -386,9 +401,19 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
           </div>
         </div>
 
+        <div className="glass-panel" style={{ padding: '1.25rem', borderLeft: '4px solid #10B981' }}>
+          <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>Compras Listas</div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#34D399', marginTop: '0.2rem' }}>
+            {stats?.purchased_tickets ?? tickets.filter(t => t.status === 'assigned' && t.is_purchased === 1).length} / {stats?.assigned_tickets || 0}
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {stats?.assigned_tickets ? `${Math.round(((stats?.purchased_tickets ?? tickets.filter(t => t.status === 'assigned' && t.is_purchased === 1).length) / stats.assigned_tickets) * 100)}% confirmadas` : '0%'}
+          </div>
+        </div>
+
         <div className="glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>Disponibles</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#34D399', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#60A5FA', marginTop: '0.2rem' }}>
             {stats?.available_tickets || 0}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Listos para sortear</div>
@@ -396,7 +421,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
 
         <div className="glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>Presupuesto Total</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#60A5FA', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#A78BFA', marginTop: '0.2rem' }}>
             ~${Number(stats?.total_budget || 0).toFixed(2)}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -437,7 +462,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
         <div>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
             {/* Filter buttons */}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
               <button 
                 onClick={() => setFilter('all')} 
                 className={`btn ${filter === 'all' ? 'btn-secondary' : 'btn-ghost'}`}
@@ -459,6 +484,20 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
               >
                 Asignados ({stats?.assigned_tickets || 0})
               </button>
+              <button 
+                onClick={() => setFilter('purchased')} 
+                className={`btn ${filter === 'purchased' ? 'btn-secondary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: filter === 'purchased' ? '#34D399' : undefined }}
+              >
+                ✅ Ya Compraron ({tickets.filter(t => t.status === 'assigned' && t.is_purchased === 1).length})
+              </button>
+              <button 
+                onClick={() => setFilter('pending_purchase')} 
+                className={`btn ${filter === 'pending_purchase' ? 'btn-secondary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: filter === 'pending_purchase' ? '#FBBF24' : undefined }}
+              >
+                ⏳ Por Comprar ({tickets.filter(t => t.status === 'assigned' && t.is_purchased !== 1).length})
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -479,13 +518,28 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                 className="glass-panel" 
                 style={{ 
                   padding: '1.25rem',
-                  borderLeft: t.status === 'assigned' ? '4px solid #F59E0B' : '4px solid #10B981'
+                  borderLeft: t.status === 'assigned' 
+                    ? (t.is_purchased === 1 ? '4px solid #10B981' : '4px solid #F59E0B') 
+                    : '4px solid #60A5FA'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <span className={`badge ${t.status === 'assigned' ? 'badge-assigned' : 'badge-available'}`}>
-                    {t.status === 'assigned' ? 'Asignado' : 'Disponible'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span className={`badge ${t.status === 'assigned' ? 'badge-assigned' : 'badge-available'}`}>
+                      {t.status === 'assigned' ? 'Asignado' : 'Disponible'}
+                    </span>
+                    {t.status === 'assigned' && (
+                      t.is_purchased === 1 ? (
+                        <span className="badge badge-available" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <CheckCircle2 size={12} /> Ya Compró
+                        </span>
+                      ) : (
+                        <span className="badge" style={{ fontSize: '0.72rem', background: 'rgba(245,158,11,0.18)', color: '#FBBF24', border: '1px solid rgba(245,158,11,0.3)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <ShoppingBag size={12} /> Por Comprar
+                        </span>
+                      )
+                    )}
+                  </div>
                   <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34D399' }}>
                     ~${Number(t.estimated_cost).toFixed(2)}
                   </span>
@@ -505,14 +559,36 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
 
                 {/* Assignment Details */}
                 {t.status === 'assigned' ? (
-                  <div style={{ background: 'rgba(245,158,11,0.1)', padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1px solid rgba(245,158,11,0.2)', marginBottom: '0.75rem' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Asignado a:</div>
-                    <div style={{ fontWeight: 700, color: '#FBBF24' }}>
+                  <div style={{ 
+                    background: t.is_purchased === 1 ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)', 
+                    padding: '0.65rem 0.85rem', 
+                    borderRadius: '10px', 
+                    border: t.is_purchased === 1 ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(245,158,11,0.2)', 
+                    marginBottom: '0.75rem' 
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Asignado a:</div>
+                      {t.is_purchased === 1 ? (
+                        <span style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: 700 }}>
+                          ✅ Ya compró las cosas
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.72rem', color: '#FBBF24', fontWeight: 700 }}>
+                          ⏳ Pendiente de compra
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 700, color: t.is_purchased === 1 ? '#34D399' : '#FBBF24', fontSize: '1rem', marginTop: '0.2rem' }}>
                       👤 {t.assigned_to}
                     </div>
                     {t.assigned_phone && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         📞 {t.assigned_phone}
+                      </div>
+                    )}
+                    {t.purchased_at && (
+                      <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.25rem' }}>
+                        🕒 Confirmado: {new Date(t.purchased_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(t.purchased_at).toLocaleDateString()})
                       </div>
                     )}
                   </div>
@@ -523,7 +599,24 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                 )}
 
                 {/* Actions */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
+                  {t.status === 'assigned' && (
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePurchase(t.id)}
+                      className="btn btn-ghost"
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '0.35rem 0.65rem',
+                        color: t.is_purchased === 1 ? '#34D399' : '#FBBF24',
+                        background: t.is_purchased === 1 ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)'
+                      }}
+                      title={t.is_purchased === 1 ? 'Desmarcar compra' : 'Marcar como comprado'}
+                    >
+                      {t.is_purchased === 1 ? '↩️ Desmarcar' : '✅ Marcar comprado'}
+                    </button>
+                  )}
+
                   {t.status === 'assigned' ? (
                     <button 
                       onClick={() => handleReleaseTicket(t.id)} 

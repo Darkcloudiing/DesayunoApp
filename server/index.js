@@ -64,6 +64,7 @@ app.get('/api/event', (req, res) => {
         COUNT(*) as total_tickets,
         SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_tickets,
         SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) as assigned_tickets,
+        SUM(CASE WHEN status = 'assigned' AND is_purchased = 1 THEN 1 ELSE 0 END) as purchased_tickets,
         COALESCE(SUM(estimated_cost), 0) as total_budget,
         COALESCE(AVG(estimated_cost), 0) as avg_cost,
         COALESCE(MIN(estimated_cost), 0) as min_cost,
@@ -409,13 +410,13 @@ app.post('/api/lottery/release-my-ticket', (req, res) => {
     if (ticketId) {
       db.prepare(`
         UPDATE tickets 
-        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL 
+        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL, is_purchased = 0, purchased_at = NULL 
         WHERE id = ?
       `).run(ticketId);
     } else if (deviceFingerprint) {
       db.prepare(`
         UPDATE tickets 
-        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL 
+        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL, is_purchased = 0, purchased_at = NULL 
         WHERE device_fingerprint = ?
       `).run(deviceFingerprint);
     }
@@ -425,7 +426,80 @@ app.post('/api/lottery/release-my-ticket', (req, res) => {
   }
 });
 
+// Participant confirms or unconfirms item purchase
+app.post('/api/lottery/confirm-purchase', (req, res) => {
+  try {
+    const { ticketId, purchased } = req.body;
+    if (!ticketId) {
+      return res.status(400).json({ error: 'ID de boleto requerido.' });
+    }
+
+    const current = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    if (!current) {
+      return res.status(404).json({ error: 'Boleto no encontrado.' });
+    }
+    if (current.status !== 'assigned') {
+      return res.status(400).json({ error: 'El boleto aún no ha sido asignado a ningún participante.' });
+    }
+
+    const isPurchased = purchased === false ? 0 : 1;
+    const purchasedAt = isPurchased === 1 ? new Date().toISOString() : null;
+
+    db.prepare(`
+      UPDATE tickets 
+      SET is_purchased = ?, purchased_at = ? 
+      WHERE id = ?
+    `).run(isPurchased, purchasedAt, ticketId);
+
+    const updated = db.prepare('SELECT * FROM tickets WHERE id = ?').get(ticketId);
+    try {
+      updated.items = JSON.parse(updated.items_json);
+    } catch {
+      updated.items = [];
+    }
+
+    res.json({
+      success: true,
+      is_purchased: isPurchased,
+      purchased_at: purchasedAt,
+      ticket: updated,
+      message: isPurchased === 1 ? '¡Compra confirmada con éxito!' : 'Compra marcada como pendiente.'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------------------- Admin Management Actions ----------------------
+
+// Toggle purchase status directly from admin panel
+app.post('/api/admin/toggle-purchase/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const current = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+    if (!current) {
+      return res.status(404).json({ error: 'Boleto no encontrado.' });
+    }
+
+    const newPurchased = current.is_purchased === 1 ? 0 : 1;
+    const purchasedAt = newPurchased === 1 ? new Date().toISOString() : null;
+
+    db.prepare(`
+      UPDATE tickets 
+      SET is_purchased = ?, purchased_at = ? 
+      WHERE id = ?
+    `).run(newPurchased, purchasedAt, id);
+
+    res.json({
+      success: true,
+      is_purchased: newPurchased,
+      purchased_at: purchasedAt,
+      message: newPurchased === 1 ? 'Marcado como comprado' : 'Marcado como pendiente'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Unassign / Release ticket
 app.post('/api/admin/release-ticket/:id', (req, res) => {
@@ -437,7 +511,9 @@ app.post('/api/admin/release-ticket/:id', (req, res) => {
           assigned_to = NULL, 
           assigned_phone = NULL, 
           device_fingerprint = NULL, 
-          assigned_at = NULL 
+          assigned_at = NULL,
+          is_purchased = 0,
+          purchased_at = NULL 
       WHERE id = ?
     `).run(id);
 
@@ -483,7 +559,9 @@ app.post('/api/admin/reset-lottery', (req, res) => {
           assigned_to = NULL, 
           assigned_phone = NULL, 
           device_fingerprint = NULL, 
-          assigned_at = NULL 
+          assigned_at = NULL,
+          is_purchased = 0,
+          purchased_at = NULL 
       WHERE event_id = ?
     `).run(event.id);
 
@@ -513,19 +591,21 @@ app.get('/api/admin/export-summary', (req, res) => {
     // Group by status
     const assigned = tickets.filter(t => t.status === 'assigned');
     const pending = tickets.filter(t => t.status === 'available');
+    const purchasedList = assigned.filter(t => t.is_purchased === 1);
 
     if (assigned.length > 0) {
-      text += `✅ *PARTICIPANTES CONFIRMADOS:*\n`;
+      text += `👥 *PARTICIPANTES CONFIRMADOS (${assigned.length}):*\n`;
       for (const t of assigned) {
         totalBudget += t.estimated_cost;
         assignedCount++;
-        text += `• 👤 *${t.assigned_to}* 👉 ${t.title} (~$${t.estimated_cost.toFixed(2)})\n`;
+        const statusIcon = t.is_purchased === 1 ? '✅ [COMPRADO]' : '⏳ [PENDIENTE]';
+        text += `• 👤 *${t.assigned_to}* 👉 ${t.title} (~$${t.estimated_cost.toFixed(2)}) ${statusIcon}\n`;
       }
       text += `\n`;
     }
 
     if (pending.length > 0) {
-      text += `⏳ *TICKETS AÚN DISPONIBLES (${pending.length}):*\n`;
+      text += `🎟️ *TICKETS AÚN DISPONIBLES (${pending.length}):*\n`;
       for (const t of pending) {
         text += `• 🎟️ ${t.title} (~$${t.estimated_cost.toFixed(2)})\n`;
       }
@@ -533,10 +613,17 @@ app.get('/api/admin/export-summary', (req, res) => {
     }
 
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `📊 *Resumen:* ${assignedCount}/${tickets.length} personas listas | Presupuesto total: ~$${totalBudget.toFixed(2)}\n`;
-    text += `¡No olviden traer sus cosas frescas antes de la hora indicada! ☕🥖`;
+    text += `📊 *Resumen:* ${assignedCount}/${tickets.length} boletos asignados | 🛍️ *${purchasedList.length}/${assignedCount} compras confirmadas*\n`;
+    text += `💰 Presupuesto total: ~$${totalBudget.toFixed(2)}\n`;
+    text += `¡Recuerden confirmar en la app cuando ya hayan comprado sus cosas! ☕🥖`;
 
-    res.json({ text, totalBudget, assignedCount, totalTickets: tickets.length });
+    res.json({ 
+      text, 
+      totalBudget, 
+      assignedCount, 
+      purchasedCount: purchasedList.length,
+      totalTickets: tickets.length 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

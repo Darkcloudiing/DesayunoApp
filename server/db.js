@@ -293,10 +293,24 @@ export function initDb() {
       assigned_phone TEXT DEFAULT NULL,
       device_fingerprint TEXT DEFAULT NULL,
       assigned_at TEXT DEFAULT NULL,
+      is_purchased INTEGER DEFAULT 0,
+      purchased_at TEXT DEFAULT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (event_id) REFERENCES events (id)
     );
   `);
+
+  // Migration: Add is_purchased and purchased_at columns if upgrading from earlier schema
+  try {
+    db.prepare('ALTER TABLE tickets ADD COLUMN is_purchased INTEGER DEFAULT 0').run();
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.prepare('ALTER TABLE tickets ADD COLUMN purchased_at TEXT DEFAULT NULL').run();
+  } catch {
+    // Column already exists
+  }
 
   // Migrate any previous default pin to 2972
   db.prepare("UPDATE events SET admin_pin = '2972' WHERE admin_pin = '1234'").run();

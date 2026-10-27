@@ -19,6 +19,7 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
   const [recoverName, setRecoverName] = useState('');
   const [recoverError, setRecoverError] = useState('');
   const [recoverLoading, setRecoverLoading] = useState(false);
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false);
 
   // Generate or get device fingerprint
   const getDeviceFingerprint = () => {
@@ -207,6 +208,40 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
       `¡Nos vemos para compartir! ☕`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  const handleTogglePurchase = async (targetPurchased) => {
+    if (!ticket?.id) return;
+    setConfirmingPurchase(true);
+    sound.playTap();
+    try {
+      const res = await fetch('/api/lottery/confirm-purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: ticket.id, purchased: targetPurchased })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updatedTicket = { 
+          ...ticket, 
+          is_purchased: data.is_purchased, 
+          purchased_at: data.purchased_at 
+        };
+        setTicket(updatedTicket);
+        localStorage.setItem('desayunapp_my_ticket', JSON.stringify(updatedTicket));
+        if (data.is_purchased === 1) {
+          triggerConfetti();
+          sound.playFanfare();
+        }
+        if (onRefresh) onRefresh();
+      } else {
+        alert(data.error || 'No se pudo actualizar el estado de la compra.');
+      }
+    } catch (err) {
+      alert('Error de conexión con el servidor: ' + err.message);
+    } finally {
+      setConfirmingPurchase(false);
+    }
   };
 
   const isSoldOut = Boolean(
@@ -588,6 +623,79 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
           {/* Ticket Card Component */}
           <TicketCard ticket={ticket} event={event} />
 
+          {/* Purchase Notice & Interactive Confirmation Card */}
+          <div 
+            style={{
+              background: ticket.is_purchased === 1 
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(5,150,105,0.22) 100%)' 
+                : 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(217,119,6,0.18) 100%)',
+              border: ticket.is_purchased === 1 ? '1px solid rgba(52,211,153,0.45)' : '1px solid rgba(245,158,11,0.4)',
+              borderRadius: '18px',
+              padding: '1.25rem',
+              marginTop: '1.25rem',
+              textAlign: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+            }}
+          >
+            {ticket.is_purchased === 1 ? (
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: '#34D399', fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.35rem' }}>
+                  <CheckCircle2 size={20} /> ¡Compra Notificada al Organizador!
+                </div>
+                <p style={{ color: '#E2E8F0', fontSize: '0.88rem', margin: '0 0 0.75rem 0' }}>
+                  Confirmaste que ya tienes tus productos listos. ¡Muchas gracias por colaborar para el desayuno! 🎉
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePurchase(false)}
+                  disabled={confirmingPurchase}
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'underline', padding: '0.3rem 0.6rem' }}
+                >
+                  {confirmingPurchase ? 'Actualizando...' : '¿Aún no has comprado? Desmarcar compra'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: '#FBBF24', fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.35rem' }}>
+                  <ShoppingBag size={20} /> ¿Ya compraste tus cosas?
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0 0 1rem 0' }}>
+                  📢 <strong>Aviso:</strong> Cuando compres o tengas listos tus productos, presiona el botón verde para avisar al organizador en el panel administrativo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePurchase(true)}
+                  disabled={confirmingPurchase}
+                  className="btn btn-primary"
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.85rem 1.2rem', 
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    boxShadow: '0 6px 20px rgba(16,185,129,0.35)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  {confirmingPurchase ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={18} /> Guardando confirmación...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={19} /> ¡Ya compré las cosas!
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Actions Bar */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1.25rem' }}>
             <button
@@ -643,9 +751,20 @@ function TicketCard({ ticket, event }) {
               {event?.title || 'Desayuno de la Oficina'}
             </h3>
           </div>
-          <span className="badge badge-category">
-            {ticket.category || 'General'}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+            <span className="badge badge-category">
+              {ticket.category || 'General'}
+            </span>
+            {ticket.is_purchased === 1 ? (
+              <span className="badge badge-available" style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}>
+                ✅ Ya Comprado
+              </span>
+            ) : (
+              <span className="badge" style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', background: 'rgba(245,158,11,0.15)', color: '#FBBF24', border: '1px solid rgba(245,158,11,0.3)' }}>
+                ⏳ Por Comprar
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Beneficiary Name */}

@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   Coffee, Sparkles, CheckCircle2, Share2, Copy, 
-  ShoppingBag, Calendar, User, ArrowRight, RefreshCw, AlertCircle
+  ShoppingBag, Calendar, User, ArrowRight, RefreshCw, AlertCircle, Gift
 } from 'lucide-react';
-import ScratchCard from './ScratchCard';
 import { sound } from '../utils/audio';
 
 export default function ParticipantDraw({ event, onSwitchToAdmin }) {
-  const [step, setStep] = useState('loading'); // 'loading', 'input', 'scratch', 'ticket'
+  const [step, setStep] = useState('loading'); // 'loading', 'input', 'reveal', 'ticket'
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [ticket, setTicket] = useState(null);
@@ -26,8 +25,17 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     return fp;
   };
 
-  // Check if participant already has a saved ticket
+  // Check if participant already has a saved ticket or if reset requested
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset') === 'true' || window.location.hash === '#reset') {
+      localStorage.removeItem('desayunapp_my_ticket');
+      localStorage.removeItem('desayunapp_device_id');
+      setTicket(null);
+      setStep('input');
+      return;
+    }
+
     const checkSaved = async () => {
       const savedTicketStr = localStorage.getItem('desayunapp_my_ticket');
       if (savedTicketStr) {
@@ -120,7 +128,7 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
       if (data.alreadyDrawn) {
         setStep('ticket');
       } else {
-        setStep('scratch');
+        setStep('reveal');
       }
     } catch (err) {
       setError(err.message);
@@ -129,11 +137,33 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     }
   };
 
+  // 1-Tap Reveal Action
   const handleRevealComplete = () => {
+    sound.playFanfare();
     triggerConfetti();
-    setTimeout(() => {
-      setStep('ticket');
-    }, 1200);
+    setStep('ticket');
+  };
+
+  // Reset test on this device
+  const handleResetMyTest = async () => {
+    if (confirm('¿Deseas reiniciar la prueba en este teléfono para poder probar con otro nombre?')) {
+      const fp = localStorage.getItem('desayunapp_device_id');
+      try {
+        await fetch('/api/lottery/release-my-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceFingerprint: fp, ticketId: ticket?.id })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+      localStorage.removeItem('desayunapp_my_ticket');
+      localStorage.removeItem('desayunapp_device_id');
+      setTicket(null);
+      setName('');
+      setPhone('');
+      setStep('input');
+    }
   };
 
   const handleCopyAssignment = () => {
@@ -156,17 +186,6 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
-  const handleResetMyTest = () => {
-    if (confirm('¿Deseas reiniciar la prueba en este teléfono para poder probar con otro nombre?')) {
-      localStorage.removeItem('desayunapp_my_ticket');
-      localStorage.removeItem('desayunapp_device_id');
-      setTicket(null);
-      setName('');
-      setPhone('');
-      setStep('input');
-    }
-  };
-
   if (step === 'loading') {
     return (
       <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -178,26 +197,26 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto', padding: '1rem' }}>
       {/* Top Brand Header */}
-      <header style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+      <header style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
         <div 
           className="animate-float" 
           style={{ 
             display: 'inline-flex', 
-            padding: '1rem', 
-            borderRadius: '24px', 
+            padding: '0.85rem', 
+            borderRadius: '20px', 
             background: 'linear-gradient(135deg, rgba(249,115,22,0.2) 0%, rgba(245,158,11,0.1) 100%)',
             border: '1px solid rgba(249,115,22,0.3)',
-            marginBottom: '0.75rem'
+            marginBottom: '0.5rem'
           }}
         >
-          <Coffee size={38} color="#F97316" />
+          <Coffee size={34} color="#F97316" />
         </div>
-        <h1 style={{ fontSize: '1.85rem', color: '#FFF', marginBottom: '0.25rem' }}>
+        <h1 style={{ fontSize: '1.75rem', color: '#FFF', marginBottom: '0.2rem' }}>
           {event?.title || 'Sorteo de Desayuno 🥐☕'}
         </h1>
         {event?.target_date && (
-          <p style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#FBBF24', fontSize: '0.9rem', fontWeight: '500' }}>
-            <Calendar size={15} /> {event.target_date}
+          <p style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#FBBF24', fontSize: '0.85rem', fontWeight: '500' }}>
+            <Calendar size={14} /> {event.target_date}
           </p>
         )}
       </header>
@@ -207,13 +226,13 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
         <div className="glass-panel" style={{ padding: '2rem 1.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span className="badge badge-category" style={{ marginBottom: '0.5rem' }}>
-              <Sparkles size={13} /> Sorteo Aleatorio & Equilibrado
+              <Sparkles size={13} /> Sorteo Oficial de 15 Boletos
             </span>
             <h2 style={{ fontSize: '1.35rem', marginTop: '0.3rem' }}>
               ¿Quién va a participar?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-              Ingresa tus datos para sacar tu ticket sorpresa. Todos los boletos están equilibrados en costo.
+              Ingresa tu nombre para sacar tu boleto sorpresa. Todos los boletos están equilibrados en costo (~$13.28).
             </p>
           </div>
 
@@ -265,12 +284,12 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
               {loading ? (
                 <>
                   <RefreshCw className="animate-spin" size={18} />
-                  Buscando tu ticket...
+                  Buscando tu boleto...
                 </>
               ) : (
                 <>
                   <Sparkles size={18} />
-                  ¡Sacar Mi Ticket Sorpresa!
+                  ¡Sacar Mi Boleto Sorpresa!
                   <ArrowRight size={18} />
                 </>
               )}
@@ -289,31 +308,91 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
         </div>
       )}
 
-      {/* STEP 2: Scratch Card Foil Screen */}
-      {step === 'scratch' && ticket && (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <span className="badge badge-assigned" style={{ fontSize: '0.85rem', padding: '0.4rem 0.9rem' }}>
-              🎉 ¡Boleto asignado a {ticket.assigned_to}!
+      {/* STEP 2: TAP-TO-REVEAL LUXURY CARD (Instant 1-Tap Reveal) */}
+      {step === 'reveal' && ticket && (
+        <div style={{ textAlign: 'center', animation: 'slide-up 0.3s ease' }}>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <span className="badge badge-assigned" style={{ fontSize: '0.9rem', padding: '0.45rem 1rem' }}>
+              🎉 ¡Boleto reservado para {ticket.assigned_to}!
             </span>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-              Usa tu dedo para raspar la tarjeta dorada y descubrir qué te tocó llevar:
-            </p>
           </div>
 
-          <ScratchCard onRevealed={handleRevealComplete}>
-            <TicketCard ticket={ticket} event={event} />
-          </ScratchCard>
+          {/* Interactive Golden Tap Card */}
+          <div 
+            onClick={handleRevealComplete}
+            className="animate-pulse-glow"
+            style={{ 
+              cursor: 'pointer',
+              background: 'linear-gradient(135deg, #D97706 0%, #F59E0B 40%, #FEF08A 70%, #B45309 100%)',
+              borderRadius: '28px',
+              padding: '3rem 1.5rem',
+              textAlign: 'center',
+              boxShadow: '0 20px 50px rgba(245, 158, 11, 0.45), 0 0 30px rgba(254, 240, 138, 0.3)',
+              border: '2px solid rgba(255, 255, 255, 0.7)',
+              transition: 'transform 0.15s ease',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ fontSize: '4rem', marginBottom: '0.5rem', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.2))' }}>
+              🎁
+            </div>
+            
+            <h2 style={{ fontSize: '1.65rem', color: '#78350F', fontWeight: 900, marginBottom: '0.35rem', letterSpacing: '-0.01em' }}>
+              ¡TOCA AQUÍ PARA ABRIR!
+            </h2>
+            
+            <p style={{ color: '#92400E', fontSize: '0.95rem', fontWeight: 600, marginBottom: '1.5rem' }}>
+              ✨ Toca con tu dedo para descubrir tu aporte del desayuno
+            </p>
+
+            <button
+              onClick={handleRevealComplete}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: '#78350F',
+                color: '#FEF3C7',
+                border: 'none',
+                padding: '0.8rem 1.6rem',
+                borderRadius: '999px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                cursor: 'pointer'
+              }}
+            >
+              <Sparkles size={18} />
+              Revelar mi Aporte
+            </button>
+          </div>
         </div>
       )}
 
       {/* STEP 3: Final Boarding-Pass Ticket View */}
       {step === 'ticket' && ticket && (
         <div style={{ animation: 'slide-up 0.4s ease' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          
+          {/* Top Bar with Status and Quick Reset Button */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <span className="badge badge-available" style={{ padding: '0.4rem 0.9rem' }}>
-              <CheckCircle2 size={15} /> ¡Tu Aporte está Confirmado!
+              <CheckCircle2 size={15} /> ¡Aporte Confirmado!
             </span>
+            <button
+              onClick={handleResetMyTest}
+              className="btn btn-secondary"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.8rem',
+                borderRadius: '999px',
+                background: 'rgba(245, 158, 11, 0.15)',
+                color: '#FBBF24',
+                border: '1px solid rgba(245, 158, 11, 0.4)'
+              }}
+              title="Permite sortear como otra persona"
+            >
+              <RefreshCw size={13} /> 🔄 Probar con otro nombre
+            </button>
           </div>
 
           {/* Ticket Card Component */}
@@ -340,23 +419,29 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          {/* Bottom Clear & Admin Buttons */}
+          <div style={{ textAlign: 'center', marginTop: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-              🔒 Tu ticket está guardado en este dispositivo.
+              🔒 Tu boleto está guardado en este dispositivo.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
               <button
                 onClick={handleResetMyTest}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.15)' }}
-                title="Borra la memoria de este teléfono para que puedas probar con otro nombre"
+                className="btn btn-primary"
+                style={{
+                  fontSize: '0.85rem',
+                  padding: '0.55rem 1.1rem',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                  color: '#FFFFFF'
+                }}
               >
-                <RefreshCw size={13} /> 🔄 Probar con otro nombre (Reiniciar prueba)
+                <RefreshCw size={14} /> 🔄 Probar con otro nombre (Reiniciar prueba)
               </button>
               <button
                 onClick={onSwitchToAdmin}
                 className="btn btn-ghost"
-                style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }}
+                style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}
               >
                 ⚙️ Administrador
               </button>
@@ -382,7 +467,7 @@ function TicketCard({ ticket, event }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
         <div>
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', fontWeight: 700 }}>
-            BOLETO DE DESAYUNO
+            BOLETO DE DESAYUNO OFICIAL
           </span>
           <h3 style={{ fontSize: '1.2rem', color: '#FFF' }}>
             {event?.title || 'Desayuno de la Oficina'}
@@ -408,7 +493,7 @@ function TicketCard({ ticket, event }) {
       <div style={{ marginBottom: '1.75rem' }}>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <ShoppingBag size={16} color="var(--primary)" />
-          TU MISIÓN PARA TRAER:
+          TU APORTE PARA EL DESAYUNO:
         </div>
 
         <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '14px', padding: '1rem' }}>
@@ -441,7 +526,7 @@ function TicketCard({ ticket, event }) {
       <div style={{ paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
-            Gasto Estimado:
+            Gasto Equilibrado:
           </div>
           <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#34D399' }}>
             ~${ticket.estimated_cost ? Number(ticket.estimated_cost).toFixed(2) : '0.00'}

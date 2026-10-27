@@ -395,6 +395,29 @@ app.post('/api/lottery/draw', (req, res) => {
   }
 });
 
+// Release ticket for test re-roll from participant phone
+app.post('/api/lottery/release-my-ticket', (req, res) => {
+  try {
+    const { deviceFingerprint, ticketId } = req.body;
+    if (ticketId) {
+      db.prepare(`
+        UPDATE tickets 
+        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL 
+        WHERE id = ?
+      `).run(ticketId);
+    } else if (deviceFingerprint) {
+      db.prepare(`
+        UPDATE tickets 
+        SET status = 'available', assigned_to = NULL, assigned_phone = NULL, device_fingerprint = NULL, assigned_at = NULL 
+        WHERE device_fingerprint = ?
+      `).run(deviceFingerprint);
+    }
+    res.json({ success: true, message: 'Ticket liberado' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------------------- Admin Management Actions ----------------------
 
 // Unassign / Release ticket

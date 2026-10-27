@@ -414,72 +414,78 @@ function TicketCard({ ticket, event }) {
   const items = ticket.items || [];
 
   return (
-    <div className="ticket-boarding-pass" style={{ padding: '1.75rem 1.5rem', textAlign: 'left' }}>
-      <div className="ticket-notch-left" />
-      <div className="ticket-notch-right" />
-      <div className="ticket-perforation" />
-
-      {/* Ticket Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-        <div>
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', fontWeight: 700 }}>
-            BOLETO DE DESAYUNO OFICIAL
+    <div className="ticket-boarding-pass">
+      {/* 1. Top Section */}
+      <div className="ticket-top-section">
+        {/* Ticket Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', fontWeight: 700 }}>
+              BOLETO DE DESAYUNO OFICIAL
+            </span>
+            <h3 style={{ fontSize: '1.2rem', color: '#FFF' }}>
+              {event?.title || 'Desayuno de la Oficina'}
+            </h3>
+          </div>
+          <span className="badge badge-category">
+            {ticket.category || 'General'}
           </span>
-          <h3 style={{ fontSize: '1.2rem', color: '#FFF' }}>
-            {event?.title || 'Desayuno de la Oficina'}
-          </h3>
-        </div>
-        <span className="badge badge-category">
-          {ticket.category || 'General'}
-        </span>
-      </div>
-
-      {/* Beneficiary Name */}
-      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '0.75rem 1rem', marginBottom: '1.25rem' }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
-          Asignado a:
-        </div>
-        <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#FBBF24', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <User size={18} />
-          {ticket.assigned_to || 'Compañero'}
-        </div>
-      </div>
-
-      {/* Main Assigned Items */}
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <ShoppingBag size={16} color="var(--primary)" />
-          TU APORTE PARA EL DESAYUNO:
         </div>
 
-        <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '14px', padding: '1rem' }}>
-          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFF', marginBottom: '0.5rem' }}>
-            {ticket.title}
+        {/* Beneficiary Name */}
+        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '0.75rem 1rem', marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+            Asignado a:
+          </div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#FBBF24', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <User size={18} />
+            {ticket.assigned_to || 'Compañero'}
+          </div>
+        </div>
+
+        {/* Main Assigned Items */}
+        <div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <ShoppingBag size={16} color="var(--primary)" />
+            TU APORTE PARA EL DESAYUNO:
           </div>
 
-          {items.length > 0 && (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {items.map((it, idx) => (
-                <li key={idx} style={{ fontSize: '0.9rem', color: '#E2E8F0', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>👉 {it.qty} {it.name}</span>
-                  {it.cost && (
-                    <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>~${Number(it.cost).toFixed(2)}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {ticket.notes && (
-            <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(249,115,22,0.2)', fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              💡 Nota: {ticket.notes}
+          <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '14px', padding: '1rem' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFF', marginBottom: '0.5rem' }}>
+              {ticket.title}
             </div>
-          )}
+
+            {items.length > 0 && (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                {items.map((it, idx) => (
+                  <li key={idx} style={{ fontSize: '0.9rem', color: '#E2E8F0', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>👉 {it.qty} {it.name}</span>
+                    {it.cost && (
+                      <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>~${Number(it.cost).toFixed(2)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {ticket.notes && (
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(249,115,22,0.2)', fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                💡 Nota: {ticket.notes}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Perforation section (Bottom receipt summary) */}
-      <div style={{ paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* 2. Pixel-Perfect Perforation Divider Row */}
+      <div className="ticket-divider-row">
+        <div className="ticket-notch-left" />
+        <div className="ticket-dashed-line" />
+        <div className="ticket-notch-right" />
+      </div>
+
+      {/* 3. Bottom Section */}
+      <div className="ticket-bottom-section">
         <div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
             Gasto Equilibrado:

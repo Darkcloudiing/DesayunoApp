@@ -4,25 +4,35 @@ Aplicación web progresiva (PWA) interactiva y moderna para organizar y sortear 
 
 ---
 
-## 📋 Lista Oficial de Boletos Cargada (15 Personas)
+## 📋 Lista Oficial de Boletos Cargada (25 Personas)
 
-Los 15 tickets están equilibrados para un promedio de **~$13.28 por persona**:
+Los 25 tickets están equilibrados para un promedio de **~$10.83 por persona** (rango súper estrecho $10.00 - $11.50):
 
-1. **Ticket 1:** 4 Combos de Pan Canilla ($10.40) + 1 Paquete Vasos ($3.00) = **$13.40**
-2. **Ticket 2:** 1 Botella de Aceite de Oliva Extra Virgen = **$15.00**
-3. **Ticket 3:** 1 kg Jamón de Pavo ($10.85) + 1 Vinagre ($2.32) = **$13.17**
-4. **Ticket 4:** 900g de Mortadela ($12.05) + 1 Bolsa de Lechuga ($1.20) = **$13.25**
-5. **Ticket 5:** 2 Salamis de 150g ($12.00) + 1 Bolsa de Lechuga ($1.20) = **$13.20**
-6. **Ticket 6:** 2 Salamis de 150g ($12.00) + 1 Bolsa de Lechuga ($1.20) = **$13.20**
-7. **Ticket 7:** 600g de Pepperoni ($10.92) + 1 Queso Crema 250g ($1.50) = **$12.42**
-8. **Ticket 8:** 600g de Queso Amarillo ($12.00) + 500g de Tomate ($2.00) = **$14.00**
-9. **Ticket 9:** 500g de Queso Amarillo ($10.00) + 1 kg de Tomate ($4.00) = **$14.00**
-10. **Ticket 10:** 2 Jugos grandes ($10.00) + 1 Paquete Platos ($3.00) = **$13.00**
-11. **Ticket 11:** 2 Jugos grandes ($10.00) + 1 Paquete Platos ($3.00) = **$13.00**
-12. **Ticket 12:** 2 Jugos grandes ($10.00) + 1 Paquete Servilletas ($2.40) = **$12.40**
-13. **Ticket 13:** 2 Aderezos César/Ranch ($11.00) + 1 Queso Crema 250g ($1.50) = **$12.50**
-14. **Ticket 14:** 2 Aderezos Tata ($9.00) + 1.1 kg Cebolla ($3.62) = **$12.62**
-15. **Ticket 15:** 2 Frascos Aceitunas ($7.80) + 1 Paquete Servilletas ($2.40) + 1 Paquete Fajitas ($3.80) = **$14.00**
+1. **Ticket 1:** 1 Aceite de Oliva (250ml) ($7.50) + 1 Queso Crema ($1.50) + 1 Botella Vinagre ($2.32) = **$11.32**
+2. **Ticket 2:** 1 Aceite de Oliva (250ml) ($7.50) + 1 Queso Crema ($1.50) + 1 Paquete Servilletas ($2.40) = **$11.40**
+3. **Ticket 3:** 1 kg Jamón de Pavo rebanado (Boleto A) = **$10.85**
+4. **Ticket 4:** 1 kg Jamón de Pavo rebanado (Boleto B) = **$10.85**
+5. **Ticket 5:** 750g Mortadela rebanada (Boleto A) = **$10.00**
+6. **Ticket 6:** 750g Mortadela rebanada (Boleto B) = **$10.00**
+7. **Ticket 7:** 1 Salami 150g ($6.00) + 1 kg Tomate fresco ($4.00) + 1 Bolsa Lechuga ($1.20) (Boleto A) = **$11.20**
+8. **Ticket 8:** 1 Salami 150g ($6.00) + 1 kg Tomate fresco ($4.00) + 1 Bolsa Lechuga ($1.20) (Boleto B) = **$11.20**
+9. **Ticket 9:** 1 Salami 150g ($6.00) + 1.1 kg Cebolla ($3.62) + 1 Bolsa Lechuga ($1.20) (Boleto A) = **$10.82**
+10. **Ticket 10:** 1 Salami 150g ($6.00) + 1.1 kg Cebolla ($3.62) + 1 Bolsa Lechuga ($1.20) (Boleto B) = **$10.82**
+11. **Ticket 11:** 1 Salami 150g ($6.00) + 2 Combos Pan Canilla ($5.20) = **$11.20**
+12. **Ticket 12:** 400g Pepperoni rebanado ($7.28) + 1 Paquete de Fajitas ($3.80) = **$11.08**
+13. **Ticket 13:** 400g Pepperoni rebanado ($7.28) + 1 Queso Crema ($1.50) + 1 Paquete Servilletas ($2.40) = **$11.18**
+14. **Ticket 14:** 550g Queso Amarillo rebanado (Boleto A) = **$11.00**
+15. **Ticket 15:** 550g Queso Amarillo rebanado (Boleto B) = **$11.00**
+16. **Ticket 16:** 500g Queso Amarillo ($10.00) + 1 Queso Crema 250g ($1.50) = **$11.50**
+17. **Ticket 17:** 3 Combos de Pan Canilla ($7.80) + 1 Paquete de Platos ($3.00) (Boleto A) = **$10.80**
+18. **Ticket 18:** 3 Combos de Pan Canilla ($7.80) + 1 Paquete de Platos ($3.00) (Boleto B) = **$10.80**
+19. **Ticket 19:** 2 Frascos de Aderezo César o Ranch ($11.00) = **$11.00**
+20. **Ticket 20:** 2 Jugos grandes pasteurizados (Boleto A) = **$10.00**
+21. **Ticket 21:** 2 Jugos grandes pasteurizados (Boleto B) = **$10.00**
+22. **Ticket 22:** 2 Jugos grandes pasteurizados (Boleto C) = **$10.00**
+23. **Ticket 23:** 2 Jugos grandes pasteurizados (Boleto D) = **$10.00**
+24. **Ticket 24:** 1 Frasco Aceitunas ($3.90) + 1 Aderezo Tata ($4.50) + 1 Paquete Vasos ($3.00) (Boleto A) = **$11.40**
+25. **Ticket 25:** 1 Frasco Aceitunas ($3.90) + 1 Aderezo Tata ($4.50) + 1 Paquete Vasos ($3.00) (Boleto B) = **$11.40**
 
 ---
 

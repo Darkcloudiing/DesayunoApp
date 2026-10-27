@@ -17,154 +17,252 @@ export const db = new DatabaseSync(dbPath);
 
 export const OFFICIAL_TICKETS = [
   {
-    title: '4 Combos de Pan Canilla + 1 Paquete de Vasos',
+    title: '1 Aceite de Oliva (250ml) + 1 Queso Crema + 1 Vinagre',
     items: [
-      { name: 'Combos de Pan Canilla', qty: '4 combos', cost: 10.40 },
-      { name: 'Paquete de Vasos', qty: '1 paquete', cost: 3.00 }
-    ],
-    category: 'Pan & Desechables',
-    cost: 13.40,
-    notes: 'Pan fresco de panadería para los sándwiches.'
-  },
-  {
-    title: '1 Botella de Aceite de Oliva Extra Virgen',
-    items: [
-      { name: 'Aceite de Oliva Extra Virgen', qty: '1 botella', cost: 15.00 }
-    ],
-    category: 'Aceites & Condimentos',
-    cost: 15.00,
-    notes: 'Para aderezar los panes y ensaladas.'
-  },
-  {
-    title: '1 kg Jamón de Pavo + 1 Vinagre',
-    items: [
-      { name: 'Jamón de Pavo', qty: '1 kg', cost: 10.85 },
+      { name: 'Aceite de Oliva Extra Virgen (250ml)', qty: '1 botella (250ml)', cost: 7.50 },
+      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 },
       { name: 'Vinagre', qty: '1 botella', cost: 2.32 }
     ],
-    category: 'Proteína & Condimentos',
-    cost: 13.17,
-    notes: 'Rebanado para rellenar.'
+    category: 'Aceites & Desayuno',
+    cost: 11.32,
+    notes: 'Aceite de oliva virgen extra de 250ml, queso crema untable y vinagre para aderezos.'
   },
   {
-    title: '900g de Mortadela + 1 Bolsa de Lechuga',
+    title: '1 Aceite de Oliva (250ml) + 1 Queso Crema + 1 Servilletas',
     items: [
-      { name: 'Mortadela rebanada', qty: '900g', cost: 12.05 },
-      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
-    ],
-    category: 'Proteína & Vegetales',
-    cost: 13.25,
-    notes: 'Lechuga limpia lista para armar.'
-  },
-  {
-    title: '2 Salamis de 150g + 1 Bolsa de Lechuga (Boleto A)',
-    items: [
-      { name: 'Salamis de 150g', qty: '2 unidades (300g total)', cost: 12.00 },
-      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
-    ],
-    category: 'Proteína & Vegetales',
-    cost: 13.20,
-    notes: 'Salamis en empaque sellado.'
-  },
-  {
-    title: '2 Salamis de 150g + 1 Bolsa de Lechuga (Boleto B)',
-    items: [
-      { name: 'Salamis de 150g', qty: '2 unidades (300g total)', cost: 12.00 },
-      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
-    ],
-    category: 'Proteína & Vegetales',
-    cost: 13.20,
-    notes: 'Salamis en empaque sellado.'
-  },
-  {
-    title: '600g de Pepperoni + 1 Queso Crema 250g',
-    items: [
-      { name: 'Pepperoni rebanado', qty: '600g', cost: 10.92 },
-      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 }
-    ],
-    category: 'Proteína & Lácteos',
-    cost: 12.42,
-    notes: 'Para untar y rellenar.'
-  },
-  {
-    title: '600g de Queso Amarillo + Medio kilo (500g) de Tomate',
-    items: [
-      { name: 'Queso Amarillo rebanado', qty: '600g', cost: 12.00 },
-      { name: 'Tomate fresco', qty: '500g (medio kilo)', cost: 2.00 }
-    ],
-    category: 'Lácteos & Vegetales',
-    cost: 14.00,
-    notes: 'Tomates lavados listos para cortar.'
-  },
-  {
-    title: '500g de Queso Amarillo + 1 kg de Tomate',
-    items: [
-      { name: 'Queso Amarillo rebanado', qty: '500g', cost: 10.00 },
-      { name: 'Tomate fresco', qty: '1 kg', cost: 4.00 }
-    ],
-    category: 'Lácteos & Vegetales',
-    cost: 14.00,
-    notes: 'Tomates maduros y firmes.'
-  },
-  {
-    title: '2 Jugos grandes + 1 Paquete de Platos (Boleto A)',
-    items: [
-      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 },
-      { name: 'Paquete de Platos desechables', qty: '1 paquete', cost: 3.00 }
-    ],
-    category: 'Bebidas & Desechables',
-    cost: 13.00,
-    notes: 'Jugos fríos del sabor preferido.'
-  },
-  {
-    title: '2 Jugos grandes + 1 Paquete de Platos (Boleto B)',
-    items: [
-      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 },
-      { name: 'Paquete de Platos desechables', qty: '1 paquete', cost: 3.00 }
-    ],
-    category: 'Bebidas & Desechables',
-    cost: 13.00,
-    notes: 'Jugos fríos del sabor preferido.'
-  },
-  {
-    title: '2 Jugos grandes + 1 Paquete de Servilletas',
-    items: [
-      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 },
+      { name: 'Aceite de Oliva Extra Virgen (250ml)', qty: '1 botella (250ml)', cost: 7.50 },
+      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 },
       { name: 'Paquete de Servilletas', qty: '1 paquete', cost: 2.40 }
     ],
-    category: 'Bebidas & Desechables',
-    cost: 12.40,
-    notes: 'Servilletas de mesa para la comida.'
+    category: 'Aceites & Desechables',
+    cost: 11.40,
+    notes: 'Botella de aceite de oliva 250ml, queso crema untable y servilletas de papel.'
   },
   {
-    title: '2 Aderezos César/Ranch + 1 Queso Crema 250g',
+    title: '1 kg Jamón de Pavo rebanado (Boleto A)',
     items: [
-      { name: 'Aderezos César o Ranch', qty: '2 frascos', cost: 11.00 },
-      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 }
+      { name: 'Jamón de Pavo rebanado', qty: '1 kg', cost: 10.85 }
     ],
-    category: 'Salsas & Lácteos',
-    cost: 12.50,
-    notes: 'Salsas cremosas para acompañar los sándwiches.'
+    category: 'Proteína',
+    cost: 10.85,
+    notes: 'Jamón de pavo fresco rebanado para sándwiches.'
   },
   {
-    title: '2 Aderezos Tata + 1.1 kg Cebolla',
+    title: '1 kg Jamón de Pavo rebanado (Boleto B)',
     items: [
-      { name: 'Aderezos Tata', qty: '2 unidades', cost: 9.00 },
-      { name: 'Cebolla fresca', qty: '1.1 kg', cost: 3.62 }
+      { name: 'Jamón de Pavo rebanado', qty: '1 kg', cost: 10.85 }
     ],
-    category: 'Salsas & Vegetales',
-    cost: 12.62,
-    notes: 'Cebollas limpias para aderezar.'
+    category: 'Proteína',
+    cost: 10.85,
+    notes: 'Jamón de pavo fresco rebanado para sándwiches.'
   },
   {
-    title: '2 Frascos Aceitunas + 1 Paquete Servilletas + 1 Paquete Fajitas',
+    title: '750g Mortadela rebanada (Boleto A)',
     items: [
-      { name: 'Frascos de Aceitunas', qty: '2 frascos', cost: 7.80 },
-      { name: 'Paquete de Servilletas', qty: '1 paquete', cost: 2.40 },
+      { name: 'Mortadela rebanada', qty: '750g', cost: 10.00 }
+    ],
+    category: 'Proteína',
+    cost: 10.00,
+    notes: 'Mortadela fresca rebanada.'
+  },
+  {
+    title: '750g Mortadela rebanada (Boleto B)',
+    items: [
+      { name: 'Mortadela rebanada', qty: '750g', cost: 10.00 }
+    ],
+    category: 'Proteína',
+    cost: 10.00,
+    notes: 'Mortadela fresca rebanada.'
+  },
+  {
+    title: '1 Salami 150g + 1 kg Tomate + 1 Lechuga (Boleto A)',
+    items: [
+      { name: 'Salami sellado (150g)', qty: '1 unidad (150g)', cost: 6.00 },
+      { name: 'Tomate fresco', qty: '1 kg', cost: 4.00 },
+      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
+    ],
+    category: 'Proteína & Vegetales',
+    cost: 11.20,
+    notes: 'Salami sellado, tomates frescos y lechuga limpia para sándwiches.'
+  },
+  {
+    title: '1 Salami 150g + 1 kg Tomate + 1 Lechuga (Boleto B)',
+    items: [
+      { name: 'Salami sellado (150g)', qty: '1 unidad (150g)', cost: 6.00 },
+      { name: 'Tomate fresco', qty: '1 kg', cost: 4.00 },
+      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
+    ],
+    category: 'Proteína & Vegetales',
+    cost: 11.20,
+    notes: 'Salami sellado, tomates frescos y lechuga limpia para sándwiches.'
+  },
+  {
+    title: '1 Salami 150g + 1.1 kg Cebolla + 1 Lechuga (Boleto A)',
+    items: [
+      { name: 'Salami sellado (150g)', qty: '1 unidad (150g)', cost: 6.00 },
+      { name: 'Cebolla fresca', qty: '1.1 kg', cost: 3.62 },
+      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
+    ],
+    category: 'Proteína & Vegetales',
+    cost: 10.82,
+    notes: 'Salami sellado, cebollas frescas y lechuga.'
+  },
+  {
+    title: '1 Salami 150g + 1.1 kg Cebolla + 1 Lechuga (Boleto B)',
+    items: [
+      { name: 'Salami sellado (150g)', qty: '1 unidad (150g)', cost: 6.00 },
+      { name: 'Cebolla fresca', qty: '1.1 kg', cost: 3.62 },
+      { name: 'Bolsa de Lechuga fresca', qty: '1 bolsa', cost: 1.20 }
+    ],
+    category: 'Proteína & Vegetales',
+    cost: 10.82,
+    notes: 'Salami sellado, cebollas frescas y lechuga.'
+  },
+  {
+    title: '1 Salami 150g + 2 Combos Pan Canilla',
+    items: [
+      { name: 'Salami sellado (150g)', qty: '1 unidad (150g)', cost: 6.00 },
+      { name: 'Combos de Pan Canilla', qty: '2 combos', cost: 5.20 }
+    ],
+    category: 'Proteína & Pan',
+    cost: 11.20,
+    notes: 'Salami sellado de 150g y 2 combos de pan canilla fresco de panadería.'
+  },
+  {
+    title: '400g Pepperoni + 1 Paquete de Fajitas',
+    items: [
+      { name: 'Pepperoni rebanado', qty: '400g', cost: 7.28 },
       { name: 'Paquete de Fajitas / Tortillas', qty: '1 paquete', cost: 3.80 }
     ],
+    category: 'Proteína & Fajitas',
+    cost: 11.08,
+    notes: 'Pepperoni rebanado y 1 paquete de fajitas/tortillas de trigo.'
+  },
+  {
+    title: '400g Pepperoni + 1 Queso Crema + 1 Servilletas',
+    items: [
+      { name: 'Pepperoni rebanado', qty: '400g', cost: 7.28 },
+      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 },
+      { name: 'Paquete de Servilletas', qty: '1 paquete', cost: 2.40 }
+    ],
+    category: 'Proteína & Desechables',
+    cost: 11.18,
+    notes: 'Pepperoni rebanado, tarrina de queso crema y paquete de servilletas.'
+  },
+  {
+    title: '550g Queso Amarillo rebanado (Boleto A)',
+    items: [
+      { name: 'Queso Amarillo rebanado', qty: '550g', cost: 11.00 }
+    ],
+    category: 'Lácteos',
+    cost: 11.00,
+    notes: 'Queso amarillo rebanado en lonjas.'
+  },
+  {
+    title: '550g Queso Amarillo rebanado (Boleto B)',
+    items: [
+      { name: 'Queso Amarillo rebanado', qty: '550g', cost: 11.00 }
+    ],
+    category: 'Lácteos',
+    cost: 11.00,
+    notes: 'Queso amarillo rebanado en lonjas.'
+  },
+  {
+    title: '500g Queso Amarillo + 1 Queso Crema (250g)',
+    items: [
+      { name: 'Queso Amarillo rebanado', qty: '500g', cost: 10.00 },
+      { name: 'Queso Crema (250g)', qty: '1 tarrina', cost: 1.50 }
+    ],
+    category: 'Lácteos',
+    cost: 11.50,
+    notes: 'Queso amarillo rebanado y queso crema untable.'
+  },
+  {
+    title: '3 Combos Pan Canilla + 1 Paquete Platos (Boleto A)',
+    items: [
+      { name: 'Combos de Pan Canilla', qty: '3 combos', cost: 7.80 },
+      { name: 'Paquete de Platos desechables', qty: '1 paquete', cost: 3.00 }
+    ],
+    category: 'Pan & Desechables',
+    cost: 10.80,
+    notes: 'Pan canilla fresco de panadería y platos desechables.'
+  },
+  {
+    title: '3 Combos Pan Canilla + 1 Paquete Platos (Boleto B)',
+    items: [
+      { name: 'Combos de Pan Canilla', qty: '3 combos', cost: 7.80 },
+      { name: 'Paquete de Platos desechables', qty: '1 paquete', cost: 3.00 }
+    ],
+    category: 'Pan & Desechables',
+    cost: 10.80,
+    notes: 'Pan canilla fresco de panadería y platos desechables.'
+  },
+  {
+    title: '2 Frascos de Aderezo César o Ranch',
+    items: [
+      { name: 'Aderezo César o Ranch', qty: '2 frascos', cost: 11.00 }
+    ],
+    category: 'Salsas & Aderezos',
+    cost: 11.00,
+    notes: 'Dos frascos de aderezo cremoso César o Ranch ($5.50 c/u).'
+  },
+  {
+    title: '2 Jugos grandes pasteurizados (Boleto A)',
+    items: [
+      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 }
+    ],
+    category: 'Bebidas',
+    cost: 10.00,
+    notes: 'Dos botellas grandes de jugo pasteurizado (naranja, durazno o pera).'
+  },
+  {
+    title: '2 Jugos grandes pasteurizados (Boleto B)',
+    items: [
+      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 }
+    ],
+    category: 'Bebidas',
+    cost: 10.00,
+    notes: 'Dos botellas grandes de jugo pasteurizado (naranja, durazno o pera).'
+  },
+  {
+    title: '2 Jugos grandes pasteurizados (Boleto C)',
+    items: [
+      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 }
+    ],
+    category: 'Bebidas',
+    cost: 10.00,
+    notes: 'Dos botellas grandes de jugo pasteurizado (naranja, durazno o pera).'
+  },
+  {
+    title: '2 Jugos grandes pasteurizados (Boleto D)',
+    items: [
+      { name: 'Jugos grandes pasteurizados', qty: '2 botellas', cost: 10.00 }
+    ],
+    category: 'Bebidas',
+    cost: 10.00,
+    notes: 'Dos botellas grandes de jugo pasteurizado (naranja, durazno o pera).'
+  },
+  {
+    title: '1 Frasco Aceitunas + 1 Aderezo Tata + 1 Paquete Vasos (Boleto A)',
+    items: [
+      { name: 'Frascos de Aceitunas rellenas', qty: '1 frasco', cost: 3.90 },
+      { name: 'Aderezo Tata', qty: '1 frasco', cost: 4.50 },
+      { name: 'Paquete de Vasos desechables', qty: '1 paquete', cost: 3.00 }
+    ],
     category: 'Acompañamientos & Desechables',
-    cost: 14.00,
-    notes: 'Aceitunas rellenas o sin hueso.'
+    cost: 11.40,
+    notes: 'Aceitunas rellenas, aderezo Tata y vasos plásticos para el desayuno.'
+  },
+  {
+    title: '1 Frasco Aceitunas + 1 Aderezo Tata + 1 Paquete Vasos (Boleto B)',
+    items: [
+      { name: 'Frascos de Aceitunas rellenas', qty: '1 frasco', cost: 3.90 },
+      { name: 'Aderezo Tata', qty: '1 frasco', cost: 4.50 },
+      { name: 'Paquete de Vasos desechables', qty: '1 paquete', cost: 3.00 }
+    ],
+    category: 'Acompañamientos & Desechables',
+    cost: 11.40,
+    notes: 'Aceitunas rellenas, aderezo Tata y vasos plásticos para el desayuno.'
   }
 ];
 
@@ -176,7 +274,7 @@ export function initDb() {
       title TEXT NOT NULL,
       description TEXT,
       target_date TEXT,
-      target_budget_per_person REAL DEFAULT 13.28,
+      target_budget_per_person REAL DEFAULT 10.83,
       admin_pin TEXT DEFAULT '2972',
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -213,9 +311,9 @@ export function initDb() {
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
     const res = insertEvent.run(
       'Gran Desayuno de la Oficina 🥖🥪',
-      '¡Sorteo oficial de aportes para el desayuno de la oficina! 15 boletos balanceados para 15 compañeros.',
+      '¡Sorteo oficial de aportes para el desayuno de la oficina! 25 boletos balanceados para 25 compañeros.',
       tomorrow,
-      13.28,
+      10.83,
       '2972'
     );
     event = { id: res.lastInsertRowid };
@@ -226,8 +324,8 @@ export function initDb() {
       WHERE id = ?
     `).run(
       'Gran Desayuno de la Oficina 🥖🥪',
-      '¡Sorteo oficial de aportes para el desayuno de la oficina! 15 boletos balanceados para 15 compañeros.',
-      13.28,
+      '¡Sorteo oficial de aportes para el desayuno de la oficina! 25 boletos balanceados para 25 compañeros.',
+      10.83,
       event.id
     );
   }

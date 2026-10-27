@@ -53,6 +53,8 @@ export default function App() {
       {view === 'participant' ? (
         <ParticipantDraw
           event={eventData}
+          stats={stats}
+          onRefresh={loadData}
           onSwitchToAdmin={() => setView('admin')}
         />
       ) : (

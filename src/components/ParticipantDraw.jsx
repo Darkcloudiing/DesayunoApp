@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
-export default function ParticipantDraw({ event, onSwitchToAdmin }) {
+export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdmin }) {
   const [step, setStep] = useState('loading'); // 'loading', 'input', 'reveal', 'ticket'
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -14,6 +14,11 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [showRecover, setShowRecover] = useState(false);
+  const [recoverName, setRecoverName] = useState('');
+  const [recoverError, setRecoverError] = useState('');
+  const [recoverLoading, setRecoverLoading] = useState(false);
 
   // Generate or get device fingerprint
   const getDeviceFingerprint = () => {
@@ -130,6 +135,9 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 409 || data.error?.includes('disponibles')) {
+          if (onRefresh) onRefresh();
+        }
         throw new Error(data.error || 'No se pudo realizar el sorteo.');
       }
 
@@ -145,6 +153,32 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecoverTicket = async (e) => {
+    e.preventDefault();
+    if (!recoverName.trim()) return;
+    setRecoverLoading(true);
+    setRecoverError('');
+    try {
+      const res = await fetch('/api/lottery/check-my-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: recoverName.trim() })
+      });
+      const data = await res.json();
+      if (data.found && data.ticket) {
+        setTicket(data.ticket);
+        localStorage.setItem('desayunapp_my_ticket', JSON.stringify(data.ticket));
+        setStep('ticket');
+      } else {
+        setRecoverError('No encontramos ningún boleto asignado a ese nombre.');
+      }
+    } catch {
+      setRecoverError('Error al contactar al servidor.');
+    } finally {
+      setRecoverLoading(false);
     }
   };
 
@@ -174,6 +208,12 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
+
+  const isSoldOut = Boolean(
+    stats && 
+    Number(stats.total_tickets) > 0 && 
+    Number(stats.available_tickets) === 0
+  );
 
   if (step === 'loading') {
     return (
@@ -210,12 +250,144 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
         )}
       </header>
 
-      {/* STEP 1: Identification & Registration */}
-      {step === 'input' && (
+      {/* STEP 1A: TICKETS AGOTADOS */}
+      {step === 'input' && isSoldOut && (
+        <div className="glass-panel" style={{ padding: '2.25rem 1.5rem', textAlign: 'center', animation: 'slide-up 0.3s ease' }}>
+          <div 
+            style={{ 
+              display: 'inline-flex', 
+              padding: '1.2rem', 
+              borderRadius: '24px', 
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#F87171',
+              marginBottom: '1rem'
+            }}
+          >
+            <ShoppingBag size={42} />
+          </div>
+
+          <div style={{ marginBottom: '0.75rem' }}>
+            <span 
+              className="badge" 
+              style={{ 
+                background: 'rgba(239, 68, 68, 0.15)', 
+                color: '#FCA5A5', 
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                padding: '0.4rem 0.9rem',
+                fontSize: '0.85rem'
+              }}
+            >
+              🎟️ Boletos Agotados (0/{stats.total_tickets} disponibles)
+            </span>
+          </div>
+
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#FFF', marginBottom: '0.6rem' }}>
+            ¡Todos los Boletos están Sorteados!
+          </h2>
+
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: '1.5', marginBottom: '1.25rem' }}>
+            Todos los puestos para este desayuno ya tienen participante asignado.
+          </p>
+
+          <div 
+            style={{ 
+              background: 'rgba(245, 158, 11, 0.1)', 
+              border: '1px solid rgba(245, 158, 11, 0.3)', 
+              borderRadius: '14px', 
+              padding: '1rem', 
+              marginBottom: '1.5rem',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+              <Sparkles size={20} color="#FBBF24" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '0.88rem', color: '#FEF3C7', lineHeight: '1.4' }}>
+                <strong>¿Quieres participar?</strong>
+                <p style={{ marginTop: '0.25rem', color: '#FDE68A', margin: 0 }}>
+                  Avísale al organizador para que agregue un nuevo boleto para ti en el panel de administración.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setChecking(true);
+              if (onRefresh) await onRefresh();
+              setTimeout(() => setChecking(false), 500);
+            }}
+            disabled={checking}
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', marginBottom: '1.25rem' }}
+          >
+            <RefreshCw className={checking ? 'animate-spin' : ''} size={18} />
+            {checking ? 'Verificando disponibilidad...' : '🔄 Comprobar Si Ya Agregaron Tu Boleto'}
+          </button>
+
+          {/* Section: Recover existing ticket if user already had one */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+            {!showRecover ? (
+              <button
+                type="button"
+                onClick={() => setShowRecover(true)}
+                className="btn btn-ghost"
+                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.4rem 0.8rem' }}
+              >
+                🔍 ¿Ya habías sacado tu boleto? Verificar con mi nombre
+              </button>
+            ) : (
+              <form onSubmit={handleRecoverTicket} style={{ animation: 'slide-up 0.2s ease', marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                  Ingresa tu nombre tal como lo escribiste al participar:
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Ej. Samuel Zerpa"
+                    value={recoverName}
+                    onChange={(e) => setRecoverName(e.target.value)}
+                    style={{ fontSize: '0.9rem', padding: '0.6rem 0.8rem' }}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={recoverLoading}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.6rem 1rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+                  >
+                    {recoverLoading ? <RefreshCw className="animate-spin" size={16} /> : 'Buscar'}
+                  </button>
+                </div>
+                {recoverError && (
+                  <p style={{ color: '#FDA4AF', fontSize: '0.8rem', margin: '0.3rem 0 0 0' }}>
+                    {recoverError}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+
+          <div style={{ marginTop: '1.25rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
+            <button 
+              onClick={onSwitchToAdmin}
+              className="btn btn-ghost" 
+              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+            >
+              ⚙️ ¿Eres el Administrador? Entrar al panel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 1B: Identification & Registration */}
+      {step === 'input' && !isSoldOut && (
         <div className="glass-panel" style={{ padding: '2rem 1.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
             <span className="badge badge-category" style={{ marginBottom: '0.5rem' }}>
-              <Sparkles size={13} /> Sorteo Oficial de 15 Boletos
+              <Sparkles size={13} /> Sorteo Oficial ({stats?.total_tickets || 15} Boletos · {stats?.available_tickets ?? '?'} Disponibles)
             </span>
             <h2 style={{ fontSize: '1.35rem', marginTop: '0.3rem' }}>
               ¿Quién va a participar?
@@ -285,7 +457,51 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
             </button>
           </form>
 
-          <div style={{ marginTop: '1.5rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem' }}>
+          {/* Section: Recover existing ticket if user already had one */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', marginTop: '1.25rem', textAlign: 'center' }}>
+            {!showRecover ? (
+              <button
+                type="button"
+                onClick={() => setShowRecover(true)}
+                className="btn btn-ghost"
+                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.4rem 0.8rem' }}
+              >
+                🔍 ¿Ya habías sacado tu boleto? Verificar con mi nombre
+              </button>
+            ) : (
+              <form onSubmit={handleRecoverTicket} style={{ animation: 'slide-up 0.2s ease', marginTop: '0.5rem', textAlign: 'left' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                  Ingresa tu nombre tal como lo escribiste al participar:
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Ej. Samuel Zerpa"
+                    value={recoverName}
+                    onChange={(e) => setRecoverName(e.target.value)}
+                    style={{ fontSize: '0.9rem', padding: '0.6rem 0.8rem' }}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={recoverLoading}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.6rem 1rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+                  >
+                    {recoverLoading ? <RefreshCw className="animate-spin" size={16} /> : 'Buscar'}
+                  </button>
+                </div>
+                {recoverError && (
+                  <p style={{ color: '#FDA4AF', fontSize: '0.8rem', margin: '0.3rem 0 0 0' }}>
+                    {recoverError}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+
+          <div style={{ marginTop: '1rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
             <button 
               onClick={onSwitchToAdmin}
               className="btn btn-ghost" 

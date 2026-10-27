@@ -232,11 +232,9 @@ export function initDb() {
     );
   }
 
-  // Populate official 15 tickets if tickets table has different count or old seeds
+  // Only populate official tickets if the tickets table for this event is completely empty (count === 0)
   const countObj = db.prepare('SELECT COUNT(*) as count FROM tickets WHERE event_id = ?').get(event.id);
-  if (!countObj || countObj.count !== 15) {
-    db.prepare('DELETE FROM tickets WHERE event_id = ?').run(event.id);
-
+  if (!countObj || countObj.count === 0) {
     const insertTicket = db.prepare(`
       INSERT INTO tickets (event_id, title, items_json, category, estimated_cost, notes)
       VALUES (?, ?, ?, ?, ?, ?)

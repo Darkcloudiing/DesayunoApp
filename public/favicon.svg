@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B35" />
+      <stop offset="100%" stop-color="#F7C59F" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="28" fill="url(#grad)" />
+  <!-- Coffee cup / breakfast icon -->
+  <path d="M28 42 h36 v22 a18 18 0 0 1 -36 0 z" fill="#FFFFFF" />
+  <path d="M64 47 h6 a6 6 0 0 1 0 12 h-6" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" />
+  <path d="M22 72 h48" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" />
+  <!-- Steam lines -->
+  <path d="M36 32 c0 -6 4 -6 4 -12" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.8" />
+  <path d="M46 32 c0 -6 4 -6 4 -12" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.9" />
+  <path d="M56 32 c0 -6 4 -6 4 -12" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.8" />
+</svg>

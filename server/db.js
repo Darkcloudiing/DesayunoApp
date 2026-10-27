@@ -177,7 +177,7 @@ export function initDb() {
       description TEXT,
       target_date TEXT,
       target_budget_per_person REAL DEFAULT 13.28,
-      admin_pin TEXT DEFAULT '1234',
+      admin_pin TEXT DEFAULT '2972',
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -200,6 +200,9 @@ export function initDb() {
     );
   `);
 
+  // Migrate any previous default pin to 2972
+  db.prepare("UPDATE events SET admin_pin = '2972' WHERE admin_pin = '1234'").run();
+
   // Check event
   let event = db.prepare('SELECT * FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1').get();
   if (!event) {
@@ -213,13 +216,13 @@ export function initDb() {
       '¡Sorteo oficial de aportes para el desayuno de la oficina! 15 boletos balanceados para 15 compañeros.',
       tomorrow,
       13.28,
-      '1234'
+      '2972'
     );
     event = { id: res.lastInsertRowid };
   } else {
     db.prepare(`
       UPDATE events 
-      SET title = ?, description = ?, target_budget_per_person = ?
+      SET title = ?, description = ?, target_budget_per_person = ?, admin_pin = '2972'
       WHERE id = ?
     `).run(
       'Gran Desayuno de la Oficina 🥖🥪',

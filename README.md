@@ -44,9 +44,9 @@ Render.com te permite tener la app pública en internet 24/7 **gratis**, con HTT
 7. En 2 minutos Render te dará un enlace público como: `https://desayunapp-xxxx.onrender.com`.
 
 ### 📲 ¿Cómo funciona una vez subido a Render?
-* **Tú abres:** `https://tu-app.onrender.com/?admin=true` (PIN: **`1234`**).
+* **Tú abres:** `https://tu-app.onrender.com/?admin=true` (Ingresas tu PIN de administrador).
 * Tocas en **"Proyector & QR"**: El código QR se genera automáticamente apuntando a tu URL pública en internet.
-* **Tus compañeros:** Escanean el QR desde cualquier lugar (desde su casa o en la oficina, por Wi-Fi o datos 4G), raspan su tarjeta dorada en su celular y descubren su aporte.
+* **Tus compañeros:** Escanean el QR desde cualquier lugar (desde su casa o en la oficina, por Wi-Fi o datos 4G), tocan su tarjeta dorada en su celular y descubren su aporte.
 * Las asignaciones quedan guardadas en tiempo real en la base de datos SQLite.
 
 ---
@@ -60,4 +60,4 @@ npm run dev
 
 * **Local:** [http://localhost:3000](http://localhost:3000)
 * **Wi-Fi Oficina:** `http://192.168.100.122:3000`
-* **Panel de Administrador:** [http://localhost:3000/?admin=true](http://localhost:3000/?admin=true) (PIN: `1234`)
+* **Panel de Administrador:** [http://localhost:3000/?admin=true](http://localhost:3000/?admin=true)

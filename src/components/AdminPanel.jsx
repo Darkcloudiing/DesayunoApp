@@ -77,7 +77,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
         sound.playFanfare();
         fetchTickets();
       } else {
-        setPinError(data.error || 'PIN incorrecto. (Por defecto es 1234)');
+        setPinError(data.error || 'PIN incorrecto. Intenta nuevamente.');
       }
     } catch {
       setPinError('Error al contactar con el servidor');
@@ -282,7 +282,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
           </div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>Acceso de Administrador</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Ingresa tu PIN secreto para gestionar los tickets y el sorteo (PIN inicial: <strong>1234</strong>)
+            Ingresa tu PIN secreto para gestionar los boletos y el sorteo.
           </p>
 
           <form onSubmit={handleAuth}>
@@ -817,9 +817,9 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                 PIN de Administrador:
               </label>
               <input
-                type="text"
+                type="password"
                 className="input-field"
-                defaultValue="1234"
+                placeholder="Ingresar nuevo PIN"
                 id="event-pin-input"
               />
             </div>

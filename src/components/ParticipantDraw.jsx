@@ -156,6 +156,17 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
+  const handleResetMyTest = () => {
+    if (confirm('¿Deseas reiniciar la prueba en este teléfono para poder probar con otro nombre?')) {
+      localStorage.removeItem('desayunapp_my_ticket');
+      localStorage.removeItem('desayunapp_device_id');
+      setTicket(null);
+      setName('');
+      setPhone('');
+      setStep('input');
+    }
+  };
+
   if (step === 'loading') {
     return (
       <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -330,16 +341,26 @@ export default function ParticipantDraw({ event, onSwitchToAdmin }) {
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>
-              🔒 Tu ticket está guardado en este dispositivo. Si vuelves a abrir la página, verás tu asignación.
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+              🔒 Tu ticket está guardado en este dispositivo.
             </p>
-            <button
-              onClick={onSwitchToAdmin}
-              className="btn btn-ghost"
-              style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}
-            >
-              ⚙️ Administrador
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleResetMyTest}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.15)' }}
+                title="Borra la memoria de este teléfono para que puedas probar con otro nombre"
+              >
+                <RefreshCw size={13} /> 🔄 Probar con otro nombre (Reiniciar prueba)
+              </button>
+              <button
+                onClick={onSwitchToAdmin}
+                className="btn btn-ghost"
+                style={{ fontSize: '0.8rem', padding: '0.45rem 0.9rem' }}
+              >
+                ⚙️ Administrador
+              </button>
+            </div>
           </div>
         </div>
       )}

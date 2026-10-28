@@ -54,11 +54,17 @@ app.get('/api/lottery/participants', async (req, res) => {
     const event = await queryOne('SELECT id FROM events WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
     if (!event) return res.json([]);
     const tickets = await query(`
-      SELECT id, assigned_to FROM tickets 
+      SELECT id, title, category, assigned_to, device_fingerprint FROM tickets 
       WHERE event_id = ? AND status = 'assigned' AND assigned_to IS NOT NULL
       ORDER BY assigned_to ASC
     `, [event.id]);
-    res.json(tickets.map(t => ({ id: t.id, name: t.assigned_to })));
+    res.json(tickets.map(t => ({ 
+      id: t.id, 
+      name: t.assigned_to, 
+      ticketTitle: t.title,
+      category: t.category,
+      isLinked: Boolean(t.device_fingerprint)
+    })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -91,6 +97,7 @@ app.get('/api/event', async (req, res) => {
         SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_tickets,
         SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) as assigned_tickets,
         SUM(CASE WHEN status = 'assigned' AND is_purchased = 1 THEN 1 ELSE 0 END) as purchased_tickets,
+        SUM(CASE WHEN status = 'assigned' AND device_fingerprint IS NOT NULL AND device_fingerprint != '' THEN 1 ELSE 0 END) as linked_tickets,
         COALESCE(SUM(estimated_cost), 0) as total_budget,
         COALESCE(AVG(estimated_cost), 0) as avg_cost,
         COALESCE(MIN(estimated_cost), 0) as min_cost,
@@ -104,6 +111,7 @@ app.get('/api/event', async (req, res) => {
       available_tickets: Number(rawStats?.available_tickets || 0),
       assigned_tickets: Number(rawStats?.assigned_tickets || 0),
       purchased_tickets: Number(rawStats?.purchased_tickets || 0),
+      linked_tickets: Number(rawStats?.linked_tickets || 0),
       total_budget: Number(rawStats?.total_budget || 0),
       avg_cost: Number(rawStats?.avg_cost || 0),
       min_cost: Number(rawStats?.min_cost || 0),
@@ -589,6 +597,21 @@ app.post('/api/admin/release-ticket/:id', async (req, res) => {
     `, [id]);
 
     res.json({ success: true, message: 'Ticket liberado y disponible nuevamente.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unbind device from ticket (resets phone lock without unassigning person)
+app.post('/api/admin/unbind-device/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await execute(`
+      UPDATE tickets 
+      SET device_fingerprint = NULL 
+      WHERE id = ?
+    `, [id]);
+    res.json({ success: true, message: 'Dispositivo desvinculado con éxito.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

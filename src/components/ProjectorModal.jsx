@@ -149,7 +149,7 @@ export default function ProjectorModal({ event, stats, networkInfo, onClose }) {
             <div style={{ fontSize: '3rem', fontWeight: 900, color: '#FBBF24', lineHeight: 1 }}>
               {stats?.assigned_tickets || 0}
               <span style={{ fontSize: '1.5rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                /{stats?.total_tickets || 15}
+                /{stats?.total_tickets || 25}
               </span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
@@ -173,6 +173,10 @@ export default function ProjectorModal({ event, stats, networkInfo, onClose }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Boletos disponibles:</span>
                 <span style={{ color: '#34D399', fontWeight: 700 }}>{stats?.available_tickets || 0}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Celulares vinculados:</span>
+                <span style={{ color: '#60A5FA', fontWeight: 700 }}>📱 {stats?.linked_tickets || 0} / {stats?.assigned_tickets || 0}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Compras confirmadas:</span>

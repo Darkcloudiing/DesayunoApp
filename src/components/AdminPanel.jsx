@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Ticket, Scale, Share2, Settings, QrCode, Plus, 
   Trash2, RefreshCw, CheckCircle2, AlertCircle, Copy, Check,
-  Edit2, UserPlus, Sparkles, DollarSign, LogOut, Coffee, ShoppingBag
+  Edit2, UserPlus, Sparkles, DollarSign, LogOut, Coffee, ShoppingBag,
+  Smartphone, Clock
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
@@ -145,6 +146,23 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
       onRefresh();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleUnbindDevice = async (id, name) => {
+    if (!confirm(`¿Desvincular el teléfono de ${name || 'este participante'}?\n\nEl participante podrá volver a abrir su boleto desde su dispositivo móvil sin problemas.`)) return;
+    try {
+      const res = await fetch(`/api/admin/unbind-device/${id}`, { method: 'POST' });
+      if (res.ok) {
+        sound.playTap();
+        fetchTickets();
+        onRefresh();
+      } else {
+        const data = await res.json();
+        alert('Error: ' + (data.error || 'No se pudo desvincular'));
+      }
+    } catch (err) {
+      alert('Error al desvincular dispositivo: ' + err.message);
     }
   };
 
@@ -339,6 +357,8 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
     if (filter === 'assigned') return t.status === 'assigned';
     if (filter === 'purchased') return t.status === 'assigned' && t.is_purchased === 1;
     if (filter === 'pending_purchase') return t.status === 'assigned' && t.is_purchased !== 1;
+    if (filter === 'linked') return t.status === 'assigned' && Boolean(t.device_fingerprint);
+    if (filter === 'unlinked') return t.status === 'assigned' && !t.device_fingerprint;
     return true;
   });
 
@@ -419,6 +439,16 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Listos para sortear</div>
         </div>
 
+        <div className="glass-panel" style={{ padding: '1.25rem', borderLeft: '4px solid #3B82F6' }}>
+          <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>En Celular</div>
+          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#60A5FA', marginTop: '0.2rem' }}>
+            {tickets.filter(t => t.status === 'assigned' && Boolean(t.device_fingerprint)).length} / {stats?.assigned_tickets || 0}
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#60A5FA' }}>
+            {stats?.assigned_tickets ? `${Math.round((tickets.filter(t => t.status === 'assigned' && Boolean(t.device_fingerprint)).length / stats.assigned_tickets) * 100)}% abrieron su ticket` : '0%'}
+          </div>
+        </div>
+
         <div className="glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 600 }}>Presupuesto Total</div>
           <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#A78BFA', marginTop: '0.2rem' }}>
@@ -485,6 +515,20 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                 Asignados ({stats?.assigned_tickets || 0})
               </button>
               <button 
+                onClick={() => setFilter('linked')} 
+                className={`btn ${filter === 'linked' ? 'btn-secondary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: filter === 'linked' ? '#60A5FA' : undefined }}
+              >
+                🟢 En Celular ({tickets.filter(t => t.status === 'assigned' && Boolean(t.device_fingerprint)).length})
+              </button>
+              <button 
+                onClick={() => setFilter('unlinked')} 
+                className={`btn ${filter === 'unlinked' ? 'btn-secondary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: filter === 'unlinked' ? '#FBBF24' : undefined }}
+              >
+                🟡 Pendientes ({tickets.filter(t => t.status === 'assigned' && !t.device_fingerprint).length})
+              </button>
+              <button 
                 onClick={() => setFilter('purchased')} 
                 className={`btn ${filter === 'purchased' ? 'btn-secondary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: filter === 'purchased' ? '#34D399' : undefined }}
@@ -528,6 +572,41 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                     <span className={`badge ${t.status === 'assigned' ? 'badge-assigned' : 'badge-available'}`}>
                       {t.status === 'assigned' ? 'Asignado' : 'Disponible'}
                     </span>
+                    {t.status === 'assigned' && (
+                      t.device_fingerprint ? (
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            background: 'rgba(16,185,129,0.15)', 
+                            color: '#34D399', 
+                            border: '1px solid rgba(16,185,129,0.35)', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '0.25rem' 
+                          }}
+                          title="El participante ya abrió y vinculó este boleto en su celular"
+                        >
+                          🟢 Celular Vinculado
+                        </span>
+                      ) : (
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            background: 'rgba(234,179,8,0.15)', 
+                            color: '#FBBF24', 
+                            border: '1px solid rgba(234,179,8,0.35)', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '0.25rem' 
+                          }}
+                          title="Aún no ha abierto el boleto en su celular"
+                        >
+                          🟡 Pendiente de Abrir
+                        </span>
+                      )
+                    )}
                     {t.status === 'assigned' && (
                       t.is_purchased === 1 ? (
                         <span className="badge badge-available" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -586,6 +665,15 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                         📞 {t.assigned_phone}
                       </div>
                     )}
+                    {t.device_fingerprint ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#34D399', marginTop: '0.3rem' }}>
+                        <Smartphone size={12} /> Teléfono vinculado y activo
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#FBBF24', marginTop: '0.3rem' }}>
+                        <Clock size={12} /> Aún no abre el boleto en su teléfono
+                      </div>
+                    )}
                     {t.purchased_at && (
                       <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.25rem' }}>
                         🕒 Confirmado: {new Date(t.purchased_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(t.purchased_at).toLocaleDateString()})
@@ -599,7 +687,7 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                 )}
 
                 {/* Actions */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem', flexWrap: 'wrap' }}>
                   {t.status === 'assigned' && (
                     <button
                       type="button"
@@ -614,6 +702,23 @@ export default function AdminPanel({ event, stats, networkInfo, onRefresh, onOpe
                       title={t.is_purchased === 1 ? 'Desmarcar compra' : 'Marcar como comprado'}
                     >
                       {t.is_purchased === 1 ? '↩️ Desmarcar' : '✅ Marcar comprado'}
+                    </button>
+                  )}
+
+                  {t.status === 'assigned' && t.device_fingerprint && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnbindDevice(t.id, t.assigned_to)}
+                      className="btn btn-ghost"
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '0.35rem 0.65rem',
+                        color: '#60A5FA',
+                        background: 'rgba(96,165,250,0.1)'
+                      }}
+                      title="Desvincular el celular para que el participante pueda abrirlo desde otro teléfono"
+                    >
+                      <Smartphone size={13} /> Desvincular Teléfono
                     </button>
                   )}
 

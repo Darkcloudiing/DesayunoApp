@@ -2,26 +2,24 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   Coffee, Sparkles, CheckCircle2, Share2, Copy, 
-  ShoppingBag, Calendar, User, ArrowRight, RefreshCw, AlertCircle, Gift
+  ShoppingBag, Calendar, User, ArrowRight, RefreshCw, AlertCircle, Gift,
+  Search, Users, Dices, Smartphone, ShieldCheck, X, Check
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdmin }) {
   const [step, setStep] = useState('loading'); // 'loading', 'input', 'reveal', 'ticket'
+  const [inputMode, setInputMode] = useState('assigned'); // 'assigned' | 'new'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmModal, setConfirmModal] = useState(null); // { id, name, ticketTitle, category, isLinked }
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [showRecover, setShowRecover] = useState(false);
-  const [recoverName, setRecoverName] = useState('');
-  const [recoverError, setRecoverError] = useState('');
-  const [recoverLoading, setRecoverLoading] = useState(false);
   const [confirmingPurchase, setConfirmingPurchase] = useState(false);
   const [participantsList, setParticipantsList] = useState([]);
-  const [showParticipantList, setShowParticipantList] = useState(false);
 
   // Generate or get device fingerprint
   const getDeviceFingerprint = () => {
@@ -270,20 +268,23 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
     }
   };
 
-  const isSoldOut = Boolean(
-    stats && 
-    Number(stats.total_tickets) > 0 && 
-    Number(stats.available_tickets) === 0
-  );
+  const assignedCount = participantsList.length > 0 
+    ? participantsList.length 
+    : (Number(stats?.assigned_tickets) || 0);
+  const totalCount = Number(stats?.total_tickets) || (assignedCount + (Number(stats?.available_tickets) || 0)) || 25;
+  const availableCount = stats?.available_tickets !== undefined 
+    ? Number(stats.available_tickets) 
+    : Math.max(0, totalCount - assignedCount);
+
+  const isSoldOut = availableCount === 0 || (stats && Number(stats.total_tickets) > 0 && Number(stats.available_tickets) === 0);
 
   const cleanNorm = (str) => (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const matchingSuggestions = name.trim().length >= 2
-    ? participantsList.filter(p => {
-        const pNorm = cleanNorm(p.name);
-        const nNorm = cleanNorm(name);
-        return pNorm.includes(nNorm) || nNorm.includes(pNorm);
-      }).slice(0, 4)
-    : [];
+  const filteredParticipants = participantsList.filter(p => {
+    if (!searchQuery.trim()) return true;
+    const pNorm = cleanNorm(p.name);
+    const qNorm = cleanNorm(searchQuery);
+    return pNorm.includes(qNorm) || qNorm.includes(pNorm);
+  });
 
   if (step === 'loading') {
     return (
@@ -320,131 +321,345 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
         )}
       </header>
 
-      {/* STEP 1A: TICKETS AGOTADOS */}
-      {step === 'input' && isSoldOut && (
-        <div className="glass-panel" style={{ padding: '2.25rem 1.5rem', textAlign: 'center', animation: 'slide-up 0.3s ease' }}>
-          <div 
-            style={{ 
-              display: 'inline-flex', 
-              padding: '1.2rem', 
-              borderRadius: '24px', 
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#F87171',
-              marginBottom: '1rem'
-            }}
-          >
-            <ShoppingBag size={42} />
+      {/* STEP 1: Identification & Selection (Options 2 & 3) */}
+      {step === 'input' && (
+        <div className="glass-panel" style={{ padding: '1.75rem 1.25rem', animation: 'slide-up 0.3s ease' }}>
+          
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+            <span className="badge badge-category" style={{ marginBottom: '0.4rem' }}>
+              <Sparkles size={13} /> {event?.title || 'Desayuno Oficial'} · {assignedCount} de {totalCount} Ocupados {availableCount === 0 ? '· ¡Cupos Llenos! 🎉' : `· ${availableCount} Disponible${availableCount === 1 ? '' : 's'}`}
+            </span>
+            <h2 style={{ fontSize: '1.35rem', marginTop: '0.2rem', color: '#FFF' }}>
+              ¿Cómo deseas ingresar?
+            </h2>
           </div>
 
-          <div style={{ marginBottom: '0.75rem' }}>
-            <span 
-              className="badge" 
-              style={{ 
-                background: 'rgba(239, 68, 68, 0.15)', 
-                color: '#FCA5A5', 
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                padding: '0.4rem 0.9rem',
-                fontSize: '0.85rem'
+          {/* Tab Selector Buttons (Option 2) */}
+          <div 
+            style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1.1fr 0.9fr', 
+              gap: '0.4rem', 
+              background: 'rgba(0,0,0,0.35)', 
+              padding: '0.35rem', 
+              borderRadius: '16px', 
+              marginBottom: '1.25rem',
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => { setInputMode('assigned'); setError(''); }}
+              style={{
+                fontSize: '0.84rem',
+                padding: '0.65rem 0.4rem',
+                borderRadius: '12px',
+                border: 'none',
+                background: inputMode === 'assigned' 
+                  ? 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' 
+                  : 'transparent',
+                color: inputMode === 'assigned' ? '#FFF' : 'var(--text-muted)',
+                fontWeight: inputMode === 'assigned' ? 700 : 500,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: inputMode === 'assigned' ? '0 4px 15px rgba(249,115,22,0.35)' : 'none',
+                transition: 'all 0.2s ease'
               }}
             >
-              🎟️ Boletos Agotados (0/{stats.total_tickets} disponibles)
-            </span>
+              <Users size={16} />
+              <span>Ya estoy en la lista ({assignedCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setInputMode('new'); setError(''); }}
+              style={{
+                fontSize: '0.84rem',
+                padding: '0.65rem 0.4rem',
+                borderRadius: '12px',
+                border: 'none',
+                background: inputMode === 'new' 
+                  ? 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' 
+                  : 'transparent',
+                color: inputMode === 'new' ? '#FFF' : 'var(--text-muted)',
+                fontWeight: inputMode === 'new' ? 700 : 500,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: inputMode === 'new' ? '0 4px 15px rgba(249,115,22,0.35)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Dices size={16} />
+              <span>
+                {availableCount > 0 
+                  ? `Nuevo Sorteo (${availableCount} cupo${availableCount === 1 ? '' : 's'})` 
+                  : 'Nuevo Sorteo (0 cupos)'}
+              </span>
+            </button>
           </div>
 
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#FFF', marginBottom: '0.6rem' }}>
-            ¡Todos los Boletos están Sorteados!
-          </h2>
+          {/* TAB 1: YA ESTOY EN LA LISTA */}
+          {inputMode === 'assigned' && (
+            <div style={{ animation: 'fade-in 0.25s ease' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '0.85rem', textAlign: 'center' }}>
+                Toca tu nombre para confirmar y vincular tu boleto a este celular ({assignedCount} participantes):
+              </p>
 
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: '1.5', marginBottom: '1.25rem' }}>
-            Todos los puestos para este desayuno ya tienen participante asignado.
-          </p>
+              {/* Search Bar */}
+              <div style={{ position: 'relative', marginBottom: '0.85rem' }}>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="🔍 Escribe tu nombre para filtrar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ paddingLeft: '2.4rem', fontSize: '0.92rem' }}
+                />
+                <Search size={18} color="var(--text-dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
 
-          <div 
-            style={{ 
-              background: 'rgba(245, 158, 11, 0.1)', 
-              border: '1px solid rgba(245, 158, 11, 0.3)', 
-              borderRadius: '14px', 
-              padding: '1rem', 
-              marginBottom: '1.5rem',
-              textAlign: 'left'
-            }}
-          >
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
-              <Sparkles size={20} color="#FBBF24" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ fontSize: '0.88rem', color: '#FEF3C7', lineHeight: '1.4' }}>
-                <strong>¿Quieres participar?</strong>
-                <p style={{ marginTop: '0.25rem', color: '#FDE68A', margin: 0 }}>
-                  Avísale al organizador para que agregue un nuevo boleto para ti en el panel de administración.
-                </p>
+              {/* Scrollable Participants Grid / List */}
+              <div 
+                style={{ 
+                  maxHeight: '340px', 
+                  overflowY: 'auto', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '0.45rem',
+                  paddingRight: '4px'
+                }}
+              >
+                {filteredParticipants.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setConfirmModal(p)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.85rem 1rem',
+                      borderRadius: '14px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.09)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      gap: '0.75rem',
+                      width: '100%'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(249, 115, 22, 0.12)';
+                      e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.35)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.09)';
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#FFF' }}>
+                        👤 {p.name}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#FDE68A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '0.15rem' }}>
+                        {p.ticketTitle}
+                      </div>
+                    </div>
+
+                    <div>
+                      {p.isLinked ? (
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            background: 'rgba(16, 185, 129, 0.15)', 
+                            color: '#6EE7B7', 
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            whiteSpace: 'nowrap',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          <Smartphone size={11} /> Vinculado
+                        </span>
+                      ) : (
+                        <span 
+                          className="badge" 
+                          style={{ 
+                            fontSize: '0.72rem', 
+                            background: 'rgba(249, 115, 22, 0.18)', 
+                            color: '#FDBA74', 
+                            border: '1px solid rgba(249, 115, 22, 0.4)',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          Ver boleto 👉
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {filteredParticipants.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                      No encontramos a ningún compañero con el nombre "<strong>{searchQuery}</strong>".
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { setInputMode('new'); setName(searchQuery); }}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.82rem', padding: '0.45rem 0.9rem' }}
+                    >
+                      <Dices size={14} /> ¿Eres nuevo? Sortea tu boleto aquí
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
-          <button
-            type="button"
-            onClick={async () => {
-              setChecking(true);
-              if (onRefresh) await onRefresh();
-              setTimeout(() => setChecking(false), 500);
-            }}
-            disabled={checking}
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', marginBottom: '1.25rem' }}
-          >
-            <RefreshCw className={checking ? 'animate-spin' : ''} size={18} />
-            {checking ? 'Verificando disponibilidad...' : '🔄 Comprobar Si Ya Agregaron Tu Boleto'}
-          </button>
-
-          {/* Section: Recover existing ticket if user already had one */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-            {!showRecover ? (
-              <button
-                type="button"
-                onClick={() => setShowRecover(true)}
-                className="btn btn-ghost"
-                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.4rem 0.8rem' }}
-              >
-                🔍 ¿Ya habías sacado tu boleto? Verificar con mi nombre
-              </button>
-            ) : (
-              <form onSubmit={handleRecoverTicket} style={{ animation: 'slide-up 0.2s ease', marginTop: '0.5rem' }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                  Ingresa tu nombre tal como lo escribiste al participar:
-                </p>
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Ej. Samuel Zerpa"
-                    value={recoverName}
-                    onChange={(e) => setRecoverName(e.target.value)}
-                    style={{ fontSize: '0.9rem', padding: '0.6rem 0.8rem' }}
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={recoverLoading}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.6rem 1rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+          {/* TAB 2: NUEVO SORTEO */}
+          {inputMode === 'new' && (
+            <div style={{ animation: 'fade-in 0.25s ease' }}>
+              {isSoldOut ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
+                  <div 
+                    style={{ 
+                      display: 'inline-flex', 
+                      padding: '1rem', 
+                      borderRadius: '20px', 
+                      background: 'rgba(239, 68, 68, 0.12)', 
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#F87171',
+                      marginBottom: '0.75rem'
+                    }}
                   >
-                    {recoverLoading ? <RefreshCw className="animate-spin" size={16} /> : 'Buscar'}
+                    <ShoppingBag size={34} />
+                  </div>
+                  <h3 style={{ fontSize: '1.2rem', color: '#FFF', fontWeight: 700, marginBottom: '0.4rem' }}>
+                    ¡Boletos Agotados para Nuevos Sorteos!
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.4', marginBottom: '1.25rem' }}>
+                    Los {totalCount} boletos oficiales ya tienen participante asignado. Si tú ya estabas participando, selecciona tu nombre en la pestaña anterior:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('assigned')}
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '0.8rem', fontSize: '0.95rem' }}
+                  >
+                    <Users size={16} /> Ver lista de los {assignedCount} participantes
                   </button>
                 </div>
-                {recoverError && (
-                  <p style={{ color: '#FDA4AF', fontSize: '0.8rem', margin: '0.3rem 0 0 0' }}>
-                    {recoverError}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
+              ) : (
+                <div>
+                  <div 
+                    style={{ 
+                      background: 'rgba(249, 115, 22, 0.1)', 
+                      border: '1px solid rgba(249, 115, 22, 0.25)', 
+                      borderRadius: '12px', 
+                      padding: '0.75rem 1rem', 
+                      marginBottom: '1.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem'
+                    }}
+                  >
+                    <Sparkles size={18} color="#F97316" style={{ flexShrink: 0 }} />
+                    <div style={{ fontSize: '0.85rem', color: '#FED7AA' }}>
+                      Quedan <strong>{availableCount} boleto{availableCount === 1 ? '' : 's'} disponible{availableCount === 1 ? '' : 's'}</strong>
+                      {stats?.avg_cost ? ` equilibrados en costo (~$${Number(stats.avg_cost).toFixed(2)})` : ''}.
+                    </div>
+                  </div>
 
-          <div style={{ marginTop: '1.25rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
+                  <form onSubmit={handleDrawTicket}>
+                    <div style={{ marginBottom: '1.15rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                        Tu Nombre y Apellido *
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="Ej. Pedro Pérez"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          autoFocus
+                          required
+                        />
+                        <User size={18} color="var(--text-dim)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                        Teléfono / WhatsApp (Opcional)
+                      </label>
+                      <input
+                        type="tel"
+                        className="input-field"
+                        placeholder="Ej. +58 412 1234567"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+
+                    {error && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '10px', color: '#FDA4AF', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                        <AlertCircle size={16} />
+                        <span>{error}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '0.9rem', fontSize: '1.02rem', fontWeight: 700 }}
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={18} />
+                          Sorteando tu boleto...
+                        </>
+                      ) : (
+                        <>
+                          <Dices size={18} />
+                          ¡Girar Ruleta y Sacar Boleto!
+                          <ArrowRight size={18} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bottom link to Admin */}
+          <div style={{ marginTop: '1.25rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
             <button 
               onClick={onSwitchToAdmin}
               className="btn btn-ghost" 
-              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+              style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', color: 'var(--text-dim)' }}
             >
               ⚙️ ¿Eres el Administrador? Entrar al panel
             </button>
@@ -452,205 +667,106 @@ export default function ParticipantDraw({ event, stats, onRefresh, onSwitchToAdm
         </div>
       )}
 
-      {/* STEP 1B: Identification & Registration */}
-      {step === 'input' && !isSoldOut && (
-        <div className="glass-panel" style={{ padding: '2rem 1.5rem' }}>
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <span className="badge badge-category" style={{ marginBottom: '0.5rem' }}>
-              <Sparkles size={13} /> Sorteo Oficial ({stats?.total_tickets || 25} Boletos · {stats?.available_tickets ?? '?'} Disponibles)
-            </span>
-            <h2 style={{ fontSize: '1.35rem', marginTop: '0.3rem' }}>
-              ¿Quién va a participar?
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-              Escribe tu nombre para consultar o sacar tu boleto para el desayuno.
-            </p>
-          </div>
-
-          <form onSubmit={handleDrawTicket}>
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                Tu Nombre y Apellido *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Ej. Samuel Zerpa"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                  required
-                />
-                <User size={18} color="var(--text-dim)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-              </div>
-
-              {/* Autocomplete suggestions */}
-              {matchingSuggestions.length > 0 && (
-                <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>¿Eres tú? Toca tu nombre:</span>
-                  {matchingSuggestions.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleSelectParticipant(p.name)}
-                      className="btn btn-ghost"
-                      style={{
-                        padding: '0.25rem 0.65rem',
-                        fontSize: '0.8rem',
-                        borderRadius: '20px',
-                        background: 'rgba(249,115,22,0.18)',
-                        border: '1px solid rgba(249,115,22,0.4)',
-                        color: '#FDBA74'
-                      }}
-                    >
-                      👤 {p.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick Participant List Toggle */}
-              {participantsList.length > 0 && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowParticipantList(!showParticipantList)}
-                    className="btn btn-ghost"
-                    style={{ fontSize: '0.76rem', color: 'var(--text-muted)', padding: '0.2rem 0.4rem', textDecoration: 'underline' }}
-                  >
-                    {showParticipantList ? '▲ Ocultar lista de nombres' : '📋 Ver lista de los 22 compañeros'}
-                  </button>
-                  {showParticipantList && (
-                    <div style={{ 
-                      marginTop: '0.4rem', 
-                      padding: '0.65rem', 
-                      background: 'rgba(0,0,0,0.3)', 
-                      borderRadius: '12px', 
-                      border: '1px solid var(--border-subtle)',
-                      maxHeight: '130px',
-                      overflowY: 'auto',
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '0.3rem'
-                    }}>
-                      {participantsList.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => handleSelectParticipant(p.name)}
-                          style={{
-                            fontSize: '0.75rem',
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '14px',
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            color: '#E2E8F0',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                Teléfono / WhatsApp (Opcional)
-              </label>
-              <input
-                type="tel"
-                className="input-field"
-                placeholder="Ej. +58 412 1234567"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-
-            {error && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '10px', color: '#FDA4AF', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '0.9rem', fontSize: '1.05rem' }}
+      {/* OPTION 3: CONFIRMATION MODAL */}
+      {confirmModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            zIndex: 9999,
+            animation: 'fade-in 0.2s ease'
+          }}
+        >
+          <div 
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              padding: '1.75rem',
+              textAlign: 'center',
+              border: '1px solid rgba(249,115,22,0.4)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+              animation: 'slide-up 0.25s ease'
+            }}
+          >
+            <div 
+              style={{
+                display: 'inline-flex',
+                padding: '0.9rem',
+                borderRadius: '50%',
+                background: 'rgba(249,115,22,0.15)',
+                border: '1px solid rgba(249,115,22,0.35)',
+                color: '#F97316',
+                marginBottom: '0.85rem'
+              }}
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="animate-spin" size={18} />
-                  Buscando tu boleto...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} />
-                  ¡Ver o Sacar Mi Boleto!
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
+              <ShieldCheck size={36} />
+            </div>
 
-          {/* Section: Recover existing ticket if user already had one */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '1rem', marginTop: '1.25rem', textAlign: 'center' }}>
-            {!showRecover ? (
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FFF', marginBottom: '0.3rem' }}>
+              ¿Confirmas que eres {confirmModal.name}?
+            </h3>
+
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
+              Este teléfono quedará vinculado a tu boleto oficial para que consultes tu aporte y confirmes tu compra.
+            </p>
+
+            {/* Ticket preview card */}
+            <div 
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '14px',
+                padding: '0.95rem',
+                marginBottom: '1.35rem',
+                textAlign: 'left'
+              }}
+            >
+              <span 
+                className="badge badge-category" 
+                style={{ fontSize: '0.72rem', marginBottom: '0.35rem', display: 'inline-block' }}
+              >
+                {confirmModal.category || 'Aporte Asignado'}
+              </span>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#FBBF24', lineHeight: '1.4' }}>
+                🥖 {confirmModal.ticketTitle}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
               <button
                 type="button"
-                onClick={() => setShowRecover(true)}
-                className="btn btn-ghost"
-                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.4rem 0.8rem' }}
+                onClick={() => {
+                  const target = confirmModal.name;
+                  setConfirmModal(null);
+                  executeDraw(target);
+                }}
+                disabled={loading}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '0.85rem', fontSize: '1rem', fontWeight: 700 }}
               >
-                🔍 ¿Ya habías sacado tu boleto? Verificar con mi nombre
+                {loading ? <RefreshCw className="animate-spin" size={18} /> : `✅ Sí, soy yo — Ver Mi Boleto`}
               </button>
-            ) : (
-              <form onSubmit={handleRecoverTicket} style={{ animation: 'slide-up 0.2s ease', marginTop: '0.5rem', textAlign: 'left' }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                  Ingresa tu nombre tal como lo escribiste al participar:
-                </p>
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Ej. Samuel Zerpa"
-                    value={recoverName}
-                    onChange={(e) => setRecoverName(e.target.value)}
-                    style={{ fontSize: '0.9rem', padding: '0.6rem 0.8rem' }}
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={recoverLoading}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.6rem 1rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
-                  >
-                    {recoverLoading ? <RefreshCw className="animate-spin" size={16} /> : 'Buscar'}
-                  </button>
-                </div>
-                {recoverError && (
-                  <p style={{ color: '#FDA4AF', fontSize: '0.8rem', margin: '0.3rem 0 0 0' }}>
-                    {recoverError}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
 
-          <div style={{ marginTop: '1rem', textAlign: 'center', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
-            <button 
-              onClick={onSwitchToAdmin}
-              className="btn btn-ghost" 
-              style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-            >
-              ⚙️ ¿Eres el Administrador? Entrar al panel
-            </button>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                disabled={loading}
+                className="btn btn-ghost"
+                style={{ width: '100%', padding: '0.6rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}
+              >
+                ❌ No soy yo, cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
